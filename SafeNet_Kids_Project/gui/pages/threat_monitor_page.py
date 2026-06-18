@@ -40,31 +40,33 @@ class ThreatMonitorPage(ctk.CTkFrame):
         # ── Sensor cards row ──────────────────────────────────────────
         sensors = ctk.CTkFrame(self, fg_color="transparent")
         sensors.grid(row=2, column=0, padx=28, sticky="ew")
-        for i in range(3):
+        for i in range(5):
             sensors.grid_columnconfigure(i, weight=1)
 
         sensor_data = [
-            ("🧠", "NLP Analyzer",    "Scans typed text for threats",       "nlp_status"),
-            ("📷", "Image Scanner",   "CV-based inappropriate content check","img_status"),
-            ("⌨️",  "Keylogger",       "Captures keystroke activity",         "key_status"),
+            ("🧠", "NLP",    "Typed text threats",        "nlp_status"),
+            ("📷", "Visual", "AI inappropriate check",   "img_status"),
+            ("⌨️",  "Keys",   "Keystroke activity",       "key_status"),
+            ("🖼️", "OCR",    "Text from screen",        "ocr_status"),
+            ("🛡️", "Safety", "Violence & Adult check", "mod_status"),
         ]
         self._sensor_labels = {}
         for col, (icon, title, desc, attr) in enumerate(sensor_data):
             c = T.card(sensors)
-            c.grid(row=0, column=col, padx=6, sticky="ew", ipady=10)
+            c.grid(row=0, column=col, padx=4, sticky="ew", ipady=8)
             row = ctk.CTkFrame(c, fg_color="transparent")
-            row.pack(padx=14, pady=(12, 0), fill="x")
-            ctk.CTkLabel(row, text=icon, font=ctk.CTkFont(size=22)).pack(side="left", padx=(0, 8))
+            row.pack(padx=10, pady=(10, 0), fill="x")
+            ctk.CTkLabel(row, text=icon, font=ctk.CTkFont(size=20)).pack(side="left", padx=(0, 6))
             ctk.CTkLabel(row, text=title,
-                         font=ctk.CTkFont(size=13, weight="bold"),
+                         font=ctk.CTkFont(size=12, weight="bold"),
                          text_color=T.TEXT_PRIMARY).pack(side="left")
             lbl = ctk.CTkLabel(c, text="● IDLE",
-                               font=ctk.CTkFont(size=11, weight="bold"),
+                               font=ctk.CTkFont(size=10, weight="bold"),
                                text_color=T.TEXT_MUTED)
-            lbl.pack(padx=14, anchor="w")
+            lbl.pack(padx=10, anchor="w")
             self._sensor_labels[attr] = lbl
-            ctk.CTkLabel(c, text=desc, font=ctk.CTkFont(size=11),
-                         text_color=T.TEXT_MUTED).pack(padx=14, pady=(0, 12), anchor="w")
+            ctk.CTkLabel(c, text=desc, font=ctk.CTkFont(size=10),
+                         text_color=T.TEXT_MUTED).pack(padx=10, pady=(0, 10), anchor="w")
 
         # ── Control bar ───────────────────────────────────────────────
         ctrl = ctk.CTkFrame(self, fg_color=T.BG_CARD,

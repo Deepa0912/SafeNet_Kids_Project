@@ -4,6 +4,7 @@ from gui import theme as T
 from gui.pages.home_page import HomePage
 from gui.pages.threat_monitor_page import ThreatMonitorPage
 from gui.pages.activity_logs_page import ActivityLogsPage
+from gui.pages.threat_database_page import ThreatDatabasePage
 from gui.pages.settings_page import SettingsPage
 
 
@@ -113,9 +114,11 @@ class Dashboard(ctk.CTkFrame):
             )
         elif page_id == "logs":
             self._current_page = ActivityLogsPage(self.content_frame)
+        elif page_id == "database":
+            self._current_page = ThreatDatabasePage(self.content_frame, self.monitor)
         elif page_id == "settings":
             self._current_page = SettingsPage(
-                self.content_frame, self.auth_manager, 
+                self.content_frame, self.auth_manager, self.monitor,
                 self.username, self.on_logout_callback
             )
 

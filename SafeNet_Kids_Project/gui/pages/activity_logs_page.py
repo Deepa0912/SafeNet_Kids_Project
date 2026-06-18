@@ -1,6 +1,7 @@
 """gui/pages/activity_logs_page.py — Activity logs viewer with filters."""
 import customtkinter as ctk
-import os, time, threading
+import os, time, threading, csv
+from tkinter import filedialog
 from gui import theme as T
 
 
@@ -27,6 +28,8 @@ class ActivityLogsPage(ctk.CTkFrame):
                     command=self._load).pack(side="right")
         T.danger_btn(hdr, text="🗑  Clear", width=100, height=34,
                      command=self._clear).pack(side="right", padx=(0, 8))
+        T.primary_btn(hdr, text="📥  Export", width=100, height=34,
+                      command=self._export_report).pack(side="right", padx=(0, 8))
 
         ctk.CTkLabel(self, text="Full audit trail of child activity and detected threats",
                      font=ctk.CTkFont(size=12), text_color=T.TEXT_SECONDARY,
@@ -62,11 +65,36 @@ class ActivityLogsPage(ctk.CTkFrame):
                                        text_color=T.TEXT_MUTED)
         self._count_lbl.grid(row=0, column=3, padx=(0, 14))
 
+        # ── Source Selector ──────────────────────────────────────────
+        sbar = T.card(self)
+        sbar.grid(row=3, column=0, padx=28, pady=(0, 10), sticky="ew")
+        
+        ctk.CTkLabel(sbar, text="Log Source:",
+                     font=ctk.CTkFont(size=12, weight="bold"),
+                     text_color=T.TEXT_SECONDARY).pack(side="left", padx=(14, 8), pady=10)
+        
+        self._source_var = ctk.StringVar(value="Audit Log")
+        self._source_map = {
+            "Audit Log": "data/safenet_audit.log",
+            "Keyboard": "data/keyboard_activity.log",
+            "Screen": "data/screen_threats.log",
+            "AI Image": "data/moderation_history.log"
+        }
+        
+        source_menu = ctk.CTkOptionMenu(
+            sbar, values=list(self._source_map.keys()),
+            variable=self._source_var,
+            command=lambda _: self._load(),
+            fg_color=T.BG_INPUT, button_color=T.BG_INPUT,
+            button_hover_color=T.BG_HOVER, text_color=T.TEXT_PRIMARY,
+            font=ctk.CTkFont(size=12)
+        )
+        source_menu.pack(side="left", padx=10, pady=10)
+
         # ── Log textbox ───────────────────────────────────────────────
         log_card = T.card(self)
-        log_card.grid(row=3, column=0, padx=28, pady=(0, 24), sticky="nsew")
-        log_card.grid_columnconfigure(0, weight=1)
-        log_card.grid_rowconfigure(0, weight=1)
+        log_card.grid(row=4, column=0, padx=28, pady=(0, 24), sticky="nsew")
+        self.grid_rowconfigure(4, weight=1)
 
         self._log_box = ctk.CTkTextbox(
             log_card, fg_color=T.BG_INPUT,
@@ -80,9 +108,10 @@ class ActivityLogsPage(ctk.CTkFrame):
 
     def _load(self):
         try:
-            log = "data/safenet_audit.log"
+            source_name = self._source_var.get()
+            log = self._source_map.get(source_name, "data/safenet_audit.log")
             if os.path.exists(log):
-                with open(log, "r") as f:
+                with open(log, "r", encoding='utf-8') as f:
                     self._all_lines = f.readlines()
             else:
                 self._all_lines = []
@@ -90,7 +119,7 @@ class ActivityLogsPage(ctk.CTkFrame):
             self._all_lines = []
         self._apply_filter()
 
-    def _apply_filter(self):
+    def _apply_filter(self, return_lines=False):
         keyword  = self._search_var.get().lower()
         category = self._filter_var.get()
 
@@ -104,6 +133,9 @@ class ActivityLogsPage(ctk.CTkFrame):
         if keyword:
             lines = [l for l in lines if keyword in l.lower()]
 
+        if return_lines:
+            return lines
+
         self._log_box.configure(state="normal")
         self._log_box.delete("1.0", "end")
         if lines:
@@ -115,7 +147,9 @@ class ActivityLogsPage(ctk.CTkFrame):
 
     def _clear(self):
         try:
-            open("data/safenet_audit.log", "w").close()
+            source_name = self._source_var.get()
+            log = self._source_map.get(source_name, "data/safenet_audit.log")
+            open(log, "w").close()
         except Exception:
             pass
         self._all_lines = []
@@ -123,13 +157,16 @@ class ActivityLogsPage(ctk.CTkFrame):
 
     def _watch(self):
         last_mtime = 0
+        last_source = ""
         while self._running:
             try:
-                log = "data/safenet_audit.log"
+                source_name = self._source_var.get()
+                log = self._source_map.get(source_name, "data/safenet_audit.log")
                 if os.path.exists(log):
                     m = os.path.getmtime(log)
-                    if m != last_mtime:
+                    if m != last_mtime or source_name != last_source:
                         last_mtime = m
+                        last_source = source_name
                         self._load()
             except Exception:
                 pass
@@ -138,3 +175,35 @@ class ActivityLogsPage(ctk.CTkFrame):
     def destroy(self):
         self._running = False
         super().destroy()
+
+    def _export_report(self):
+        """Exports the currently filtered logs to a CSV file."""
+        lines = self._apply_filter(return_lines=True)
+        if not lines:
+            return
+
+        source = self._source_var.get()
+        filename = f"SafeNet_{source.replace(' ', '_')}_Report.csv"
+        
+        path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            initialfile=filename,
+            filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")]
+        )
+        
+        if not path:
+            return
+
+        try:
+            with open(path, "w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow(["Timestamp", "Log Entry"])
+                for line in lines:
+                    # Basic split if it follows standard log format
+                    parts = line.split(" - ", 2)
+                    if len(parts) == 3:
+                        writer.writerow([parts[0], parts[2].strip()])
+                    else:
+                        writer.writerow(["Unknown", line.strip()])
+        except Exception:
+            pass

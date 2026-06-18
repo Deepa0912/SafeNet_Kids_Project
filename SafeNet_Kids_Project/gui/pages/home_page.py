@@ -40,10 +40,10 @@ class HomePage(ctk.CTkFrame):
             stats.grid_columnconfigure(i, weight=1)
 
         cards_data = [
-            ("🚨", "Threats Today",    "0",  T.DANGER,   "threats_val"),
-            ("👁️",  "Active Sessions",  "0",  T.CYAN,     "sessions_val"),
-            ("🛡️", "Blocked Apps",     "0",  T.WARNING,  "blocked_val"),
-            ("📋", "Log Entries",      "0",  T.SUCCESS,  "logs_val"),
+            ("🛡️", "Risk Profile",     "Safe", T.SUCCESS,  "risk_val"),
+            ("🚨", "Total Threats",    "0",  T.DANGER,   "threats_val"),
+            ("📷", "Evidence Files",   "0",  T.CYAN,     "evidence_val"),
+            ("📋", "System Logs",      "0",  T.SUCCESS,  "logs_val"),
         ]
         self._stat_labels = {}
         for col, (icon, title, val, color, attr) in enumerate(cards_data):
@@ -118,20 +118,49 @@ class HomePage(ctk.CTkFrame):
 
     def _refresh(self):
         try:
+            # 1. Main Audit Stats
             log_file = "data/safenet_audit.log"
+            threats = 0
+            main_logs = 0
             if os.path.exists(log_file):
                 with open(log_file, "r") as f:
                     lines = f.readlines()
                 threats = sum(1 for l in lines if "Threat:" in l)
+                main_logs = len(lines)
+                
                 self._stat_labels["threats_val"].configure(text=str(threats))
-                self._stat_labels["logs_val"].configure(text=str(len(lines)))
-                self._stat_labels["sessions_val"].configure(text="1" if self.monitor.is_running else "0")
+                self._stat_labels["logs_val"].configure(text=str(main_logs))
 
                 self._activity_box.configure(state="normal")
                 self._activity_box.delete("1.0", "end")
                 recent = lines[-5:] if lines else ["No activity yet."]
                 self._activity_box.insert("1.0", "".join(recent))
                 self._activity_box.configure(state="disabled")
+
+            # 2. Risk Scoring
+            score = self.monitor.risk_engine.calculate_score()
+            cat = self.monitor.risk_engine.get_category(score)
+            
+            color = T.SUCCESS
+            if score > 70: color = T.DANGER
+            elif score > 30: color = T.WARNING
+            
+            self._stat_labels["risk_val"].configure(text=f"{cat}\n({score})", text_color=color)
+
+            # 3. Keylog Stats
+            keylog_file = "data/keyboard_activity.log"
+            if os.path.exists(keylog_file):
+                with open(keylog_file, "r") as f:
+                    keys_count = sum(1 for _ in f)
+                self._stat_labels["keys_val"].configure(text=str(keys_count))
+
+            # 3. Evidence Stats
+            evidence_count = 0
+            evidence_base = "data/evidence"
+            if os.path.exists(evidence_base):
+                for root, dirs, files in os.walk(evidence_base):
+                    evidence_count += len(files)
+            self._stat_labels["evidence_val"].configure(text=str(evidence_count))
 
             running = self.monitor.is_running
             self._monitor_badge.configure(

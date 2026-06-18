@@ -5,9 +5,10 @@ from gui import theme as T
 
 class SettingsPage(ctk.CTkFrame):
 
-    def __init__(self, master, auth_manager, username, on_logout):
+    def __init__(self, master, auth_manager, monitor, username, on_logout):
         super().__init__(master, fg_color=T.BG_PRIMARY, corner_radius=0)
         self.auth_manager = auth_manager
+        self.monitor      = monitor
         self.username     = username
         self.on_logout    = on_logout
         self._build()
@@ -110,6 +111,35 @@ class SettingsPage(ctk.CTkFrame):
                       height=38, width=190).grid(row=7, column=0, columnspan=2,
                                                   sticky="w", pady=(12, 0))
 
+        # ── Monitoring Section ──────────────────────────────────────────
+        r = self._section(scroll, r, "🔍  Monitoring Preferences", "Adjust safety scan behavior")
+        
+        mon_card = T.card(scroll)
+        mon_card.grid(row=r, column=0, sticky="ew", pady=(0, 6))
+        r += 1
+        
+        row1 = ctk.CTkFrame(mon_card, fg_color="transparent")
+        row1.pack(fill="x", padx=20, pady=12)
+        ctk.CTkLabel(row1, text="Desktop Notifications", font=ctk.CTkFont(size=12, weight="bold"),
+                     text_color=T.TEXT_PRIMARY).pack(side="left")
+        
+        self._notif_var = ctk.BooleanVar(value=self.monitor.notifications_enabled)
+        notif_sw = ctk.CTkSwitch(row1, text="", variable=self._notif_var, 
+                                 command=self._update_mon_settings,
+                                 progress_color=T.CYAN)
+        notif_sw.pack(side="right")
+
+        row2 = ctk.CTkFrame(mon_card, fg_color="transparent")
+        row2.pack(fill="x", padx=20, pady=12)
+        ctk.CTkLabel(row2, text="Scan Interval (Seconds)", font=ctk.CTkFont(size=12, weight="bold"),
+                     text_color=T.TEXT_PRIMARY).pack(side="left")
+        
+        self._interval_var = ctk.StringVar(value=str(self.monitor.scan_interval))
+        interval_entry = T.entry(row2, placeholder="9", var=self._interval_var, width=60)
+        interval_entry.pack(side="right")
+        interval_entry.bind("<FocusOut>", lambda _: self._update_mon_settings())
+        interval_entry.bind("<Return>", lambda _: self._update_mon_settings())
+
         # ── About ─────────────────────────────────────────────────────
         r = self._section(scroll, r, "ℹ️  About SafeNet Kids", "")
         about = T.card(scroll)
@@ -210,3 +240,15 @@ class SettingsPage(ctk.CTkFrame):
     def _set_pp_err(self, msg):
         self._pp_status_var.set(f"❌  {msg}")
         self._pp_status.configure(text_color=T.DANGER)
+
+    def _update_mon_settings(self):
+        """Syncs UI settings back to the monitor instance."""
+        try:
+            self.monitor.notifications_enabled = self._notif_var.get()
+            interval = int(self._interval_var.get())
+            if 3 <= interval <= 300:
+                self.monitor.scan_interval = interval
+            else:
+                self._interval_var.set(str(self.monitor.scan_interval))
+        except ValueError:
+            self._interval_var.set(str(self.monitor.scan_interval))

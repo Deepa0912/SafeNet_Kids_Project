@@ -6,9 +6,11 @@ import pygetwindow as gw
 from plyer import notification
 
 from core.nlp_analyzer import NLPAnalyzer
-from core.key_logger import KeyLogger
-from core.image_analyzer import ImageAnalyzer
+from core.keyboard_monitor import KeyboardMonitor
+from core.ai_image_moderator import AIImageModerator
 from core.ai_classifier import AIClassifier
+from core.risk_engine import RiskEngine
+from core.screen_monitor import ScreenMonitor
 
 
 class SafeNetMonitor:
@@ -17,8 +19,13 @@ class SafeNetMonitor:
         self.log_path = log_path
         self.process_manager = process_manager
         self.nlp_analyzer = NLPAnalyzer()
-        self.image_analyzer = ImageAnalyzer()
+        self.image_analyzer = AIImageModerator("data/moderation_model.h5")
         self.ai_classifier = AIClassifier()
+        self.risk_engine = RiskEngine(log_path)
+        
+        # Configuration
+        self.notifications_enabled = True
+        self.scan_interval = 9 
 
         self.is_running = False
         self.monitor_thread = None
@@ -28,7 +35,18 @@ class SafeNetMonitor:
         self._load_database()
         self._setup_logging()
 
-        self.key_logger = KeyLogger(self._analyze_typed_text)
+        self.key_logger = KeyboardMonitor(
+            db_path,
+            log_path,
+            ai_classifier=self.ai_classifier,
+            nlp_analyzer=self.nlp_analyzer,
+            alert_callback=self._on_keyboard_threat
+        )
+        self.screen_monitor = ScreenMonitor(
+            db_path,
+            log_path,
+            alert_callback=self._on_screen_threat
+        )
 
     def _load_database(self):
         try:
@@ -45,6 +63,13 @@ class SafeNetMonitor:
             level=logging.INFO,
             format='%(asctime)s - %(levelname)s - %(message)s'
         )
+
+    def reload_database(self):
+        """Reloads the threat database and synchronizes all modules."""
+        self._load_database()
+        self.key_logger.reload_database()
+        self.screen_monitor.reload_database()
+        logging.info("SafeNetMonitor: Threat database reloaded and synchronized.")
 
     def start(self):
         if not self.is_running:
@@ -74,13 +99,19 @@ class SafeNetMonitor:
 
                 counter += 1
                 if counter >= 3:
-                    if self.image_analyzer.capture_and_analyze():
-                        self._trigger_alert("Explicit Image Detected", "Screen Analysis", "Background Scanner")
+                    # 1. AI Image Moderation (Adult, Violence, etc.)
+                    label, confidence = self.image_analyzer.capture_and_analyze()
+                    if label != "Safe" and confidence > 0.7:
+                        self._trigger_alert(f"AI Detected Image: {label}", f"Confidence: {confidence:.2f}", "Screen Monitor")
+                    
+                    # 2. Screen OCR Analysis
+                    self.screen_monitor.capture_and_scan()
+                    
                     counter = 0
 
             except Exception as e:
                 pass
-            time.sleep(3)
+            time.sleep(self.scan_interval)
 
     def _analyze_title(self, title):
         for site in self.blocked_sites:
@@ -94,29 +125,29 @@ class SafeNetMonitor:
                     self._trigger_alert(f"Restricted Keyword ({category})", keyword, title)
                     return
 
-    def _analyze_typed_text(self, text):
-        # 1. AI Prediction (High Priority)
-        ai_label, confidence = self.ai_classifier.predict(text)
-        if ai_label and ai_label != "Safe" and confidence > 0.6:
-            self._trigger_alert(f"AI Detected: {ai_label} (Conf: {confidence:.2f})", text, "Keyboard AI")
-            return
+    def _on_keyboard_threat(self, category, trigger, context):
+        """Callback for threat detection from the KeyboardMonitor."""
+        self._trigger_alert(f"Restricted Activity ({category})", trigger, f"Keyboard: {context}")
 
-        # 2. VADER Sentiment (Bulying)
-        if self.nlp_analyzer.is_highly_negative(text):
-            self._trigger_alert("Cyberbullying/Toxic Chat Detected", text, "Keyboard Input")
-            return
-
-        # 3. Keyword Matching
-        text_lower = text.lower()
-        for category, keywords in self.categories.items():
-            for keyword in keywords:
-                if keyword.lower() in text_lower:
-                    self._trigger_alert(f"Restricted Typed Keyword ({category})", keyword, "Keyboard Input")
-                    return
+    def _on_screen_threat(self, category, trigger, evidence_path):
+        """Callback for threat detection from the ScreenMonitor."""
+        self._trigger_alert(f"Screen Threat ({category})", trigger, f"Screen OCR (Evidence: {evidence_path})")
 
     def _trigger_alert(self, threat_type, trigger_word, source):
         log_message = f"Threat: {threat_type} | Trigger: '{trigger_word}' | Source: '{source}'"
         logging.info(log_message)
+        
+        # Desktop Notification
+        if self.notifications_enabled:
+            try:
+                notification.notify(
+                    title=f"SafeNet Alert: {threat_type}",
+                    message=f"Detected on {source}: '{trigger_word}'",
+                    app_name="SafeNet Kids",
+                    timeout=5
+                )
+            except Exception as e:
+                logging.error(f"Notification error: {e}")
 
         if self.process_manager:
             self.process_manager.kill_active_browsers()
