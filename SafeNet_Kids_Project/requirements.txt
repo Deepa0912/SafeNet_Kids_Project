@@ -1,0 +1,13 @@
+customtkinter==5.2.2
+PyGetWindow==0.0.9
+psutil==5.9.8
+plyer==2.1.0
+nltk==3.8.1
+darkdetect==0.8.0
+packaging==23.2
+pyrect==0.2.0
+keyboard==0.13.5
+opencv-python==4.9.0.80
+Pillow==10.2.0
+numpy==1.26.4
+tensorflow==2.15.0

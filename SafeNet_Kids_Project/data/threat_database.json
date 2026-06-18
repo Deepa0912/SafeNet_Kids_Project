@@ -1,0 +1,63 @@
+{
+  "categories": {
+    "Cyberbullying": [
+      "loser",
+      "ugly",
+      "hate you",
+      "kill yourself",
+      "kys",
+      "nobody likes you",
+      "die",
+      "dumb",
+      "worthless"
+    ],
+    "SelfHarm": [
+      "hurt myself",
+      "suicide",
+      "depressed",
+      "cut myself",
+      "end it all",
+      "I want to die",
+      "no reason to live"
+    ],
+    "AdultContent": [
+      "18+",
+      "porn",
+      "xxx",
+      "nsfw",
+      "onlyfans",
+      "escort",
+      "camgirl",
+      "adult dating"
+    ],
+    "Gambling": [
+      "casino",
+      "betting",
+      "poker",
+      "slots",
+      "gamble",
+      "roulette",
+      "blackjack"
+    ],
+    "Drugs": [
+      "buy drugs",
+      "weed",
+      "cocaine",
+      "meth",
+      "how to get high",
+      "buy weed online",
+      "dark web marketplace"
+    ]
+  },
+  "blocked_sites": [
+    "phishing-site.com",
+    "fake-login.net",
+    "malicious-download.com",
+    "adultsite.com",
+    "bet365.com",
+    "omegle.com",
+    "4chan.org",
+    "roulette.com",
+    "darknet-markets.org"
+  ]
+}
