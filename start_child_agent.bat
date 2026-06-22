@@ -16,7 +16,9 @@ set SAFENET_API=https://safenetkidsproject-production.up.railway.app
 echo  [1] Ask your parent for the Link Code
 echo  [2] Type it below when asked
 echo.
-python agent/monitor.py
+:: Change to the folder where this bat file lives, then run monitor.py
+cd /d "%~dp0"
+python monitor.py
 
 echo.
 echo  Agent stopped. Press any key to exit.
