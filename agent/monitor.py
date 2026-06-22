@@ -42,7 +42,7 @@ DEVICE_ID = secrets.token_hex(8)
 
 KEYBOARD_BUFFER = []
 LAST_WINDOW     = ""
-SCREEN_INTERVAL = 30   # seconds between periodic screenshots
+SCREEN_INTERVAL = 300  # seconds between periodic screenshots (5 min — conserves Gemini quota)
 
 def close_active_window():
     """Identifies the active browser window and closes it."""

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { parentAPI } from '../api'
 import { Plus } from 'lucide-react'
 
-export default function SettingsPage({ children, selectedChild }) {
+export default function SettingsPage({ children, selectedChild, onChildAdded }) {
     const [childName, setChildName] = useState('')
     const [msg, setMsg] = useState('')
 
@@ -14,7 +14,9 @@ export default function SettingsPage({ children, selectedChild }) {
             const { link_code } = r.data
             setMsg(`✅ Child added! Linking code: ${link_code} — Give this code to the monitoring agent.`)
             setChildName('')
+            if (onChildAdded) onChildAdded()  // 🔄 Refresh children list
         } catch { setMsg('❌ Failed to add child.') }
+
     }
 
     return (

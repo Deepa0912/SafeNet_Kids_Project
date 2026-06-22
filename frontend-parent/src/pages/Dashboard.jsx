@@ -36,15 +36,20 @@ export default function Dashboard({ user, onLogout }) {
     const [unreadCount, setUnreadCount] = useState(0)
 
     // Load children
-    useEffect(() => {
+    const refreshChildren = useCallback(() => {
         parentAPI.getChildren().then(r => {
             setChildren(r.data)
             if (r.data.length > 0 && !selectedChild) setSelectedChild(r.data[0])
         }).catch(() => { })
+    }, [selectedChild])
+
+    useEffect(() => {
+        refreshChildren()
         parentAPI.getNotifications().then(r => {
             setUnreadCount(r.data.filter(n => !n.is_read).length)
         }).catch(() => { })
     }, [])
+
 
     // Socket.IO real-time alerts
     useEffect(() => {
@@ -82,7 +87,8 @@ export default function Dashboard({ user, onLogout }) {
             case 'alerts': return <AlertsPage     {...props} />
             case 'screenshots': return <ScreenshotsPage {...props} />
             case 'control': return <ControlPage    {...props} />
-            case 'settings': return <SettingsPage   {...props} />
+            case 'settings': return <SettingsPage   {...props} onChildAdded={refreshChildren} />
+
             default: return <DashboardPage  {...props} />
         }
     }
@@ -122,8 +128,8 @@ export default function Dashboard({ user, onLogout }) {
                     {NAV.map(({ id, icon: Icon, label }) => (
                         <button key={id} onClick={() => setPage(id)}
                             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${page === id
-                                    ? 'bg-cyan-400/10 text-cyan-400'
-                                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                                ? 'bg-cyan-400/10 text-cyan-400'
+                                : 'text-slate-400 hover:bg-white/5 hover:text-white'
                                 }`}>
                             <Icon size={17} />
                             <span>{label}</span>
