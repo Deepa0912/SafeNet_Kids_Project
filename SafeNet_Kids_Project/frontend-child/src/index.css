@@ -1,8 +1,0 @@
-@import "tailwindcss";
-
-body {
-  background: #0a0d14;
-  color: #e8f4f8;
-  font-family: 'Inter', system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased;
-}
