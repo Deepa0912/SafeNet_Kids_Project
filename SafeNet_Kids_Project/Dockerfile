@@ -12,9 +12,11 @@ RUN npm run build
 FROM python:3.11-slim AS backend
 WORKDIR /app
 
-# System deps for bcrypt / Pillow
+# System deps for bcrypt / Pillow / OpenCV
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libffi-dev libssl-dev && rm -rf /var/lib/apt/lists/*
+    build-essential gcc python3-dev libffi-dev libssl-dev libgl1-mesa-glx libglib2.0-0 && \
+    rm -rf /var/lib/apt/lists/*
+
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

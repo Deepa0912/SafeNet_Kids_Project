@@ -1,18 +1,25 @@
-customtkinter>=5.2.2
-PyGetWindow>=0.0.9
-psutil>=5.9.8
-plyer>=2.1.0
+# Core Backend
+fastapi>=0.100.0
+uvicorn>=0.23.0
+python-socketio[asyncio_client]>=5.10.0
+sqlalchemy>=2.0.0
+python-multipart>=0.0.6
+python-jose[cryptography]>=3.3.0
+bcrypt==4.0.1
+python-dotenv>=1.0.0
+
+# AI / ML
+google-genai>=0.3.0
 nltk>=3.8.1
-darkdetect>=0.8.0
-packaging>=23.2
-pyrect>=0.2.0
-keyboard>=0.13.5
-opencv-python>=4.9.0.80
-Pillow>=10.4.0
-numpy>=2.1.0
-tensorflow>=2.17.0
-pytesseract>=0.3.10
-pystray>=0.19.5
-reportlab>=4.2.2
-matplotlib>=3.9.2
 scikit-learn>=1.3.0
+numpy>=1.24.0
+scipy>=1.10.0
+
+# Monitoring / Agent
+psutil>=5.9.0
+Pillow>=10.0.0
+pynput>=1.7.6
+opencv-python-headless>=4.8.0
+
+# Reporting
+reportlab>=4.0.0
