@@ -1,6 +1,7 @@
 """gui/pages/home_page.py — Dashboard home with stats cards."""
 import customtkinter as ctk
 import os
+from datetime import datetime, timedelta
 from gui import theme as T
 
 
@@ -83,22 +84,41 @@ class HomePage(ctk.CTkFrame):
         # ── Recent Activity ────────────────────────────────────────────
         ra = T.card(self)
         ra.grid(row=4, column=0, padx=28, pady=(0, 24), sticky="ew")
-        ra.grid_columnconfigure(0, weight=1)
+        # ── Activity & Chart ──────────────────────────────────────────
+        content = ctk.CTkFrame(self, fg_color="transparent")
+        content.grid(row=4, column=0, padx=28, pady=(0, 24), sticky="nsew")
+        content.grid_columnconfigure(0, weight=1)
+        content.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure(4, weight=1)
 
-        hdr2 = ctk.CTkFrame(ra, fg_color="transparent")
-        hdr2.grid(row=0, column=0, padx=16, pady=(14, 6), sticky="ew")
-        ctk.CTkLabel(hdr2, text="Recent Activity",
-                     font=ctk.CTkFont(size=13, weight="bold"),
-                     text_color=T.TEXT_PRIMARY).pack(side="left")
-        ctk.CTkLabel(hdr2, text="Last 5 log entries",
-                     font=ctk.CTkFont(size=11),
-                     text_color=T.TEXT_MUTED).pack(side="right")
+        # Activity Box
+        act_wrap = T.card(content)
+        act_wrap.grid(row=0, column=0, padx=(0, 10), sticky="nsew")
+        ctk.CTkLabel(act_wrap, text="📝 Recent Activity", font=ctk.CTkFont(size=14, weight="bold")).pack(pady=10)
+        self._activity_box = ctk.CTkTextbox(act_wrap, height=180, fg_color="transparent", font=ctk.CTkFont(size=12))
+        self._activity_box.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
-        self._activity_box = ctk.CTkTextbox(
-            ra, height=100, fg_color=T.BG_INPUT,
-            text_color=T.TEXT_SECONDARY, font=ctk.CTkFont(family="Consolas", size=11),
-            border_width=0, corner_radius=8)
-        self._activity_box.grid(row=1, column=0, padx=16, pady=(0, 14), sticky="ew")
+        # Risk Chart
+        chart_wrap = T.card(content)
+        chart_wrap.grid(row=0, column=1, padx=(10, 0), sticky="nsew")
+        ctk.CTkLabel(chart_wrap, text="📊 Weekly Risk Trend", font=ctk.CTkFont(size=14, weight="bold")).pack(pady=10)
+        
+        self._chart_canvas = ctk.CTkFrame(chart_wrap, fg_color="transparent", height=150)
+        self._chart_canvas.pack(fill="x", padx=15, pady=5)
+        self._bars = []
+        for i in range(7):
+            bar = ctk.CTkFrame(self._chart_canvas, fg_color=T.CYAN, width=24, height=1)
+            bar.pack(side="left", expand=True, anchor="s", padx=2)
+            self._bars.append(bar)
+        
+        self._days_row = ctk.CTkFrame(chart_wrap, fg_color="transparent")
+        self._days_row.pack(fill="x", padx=15)
+        self._day_labels = []
+        for i in range(7):
+            lbl = ctk.CTkLabel(self._days_row, text="-", font=ctk.CTkFont(size=10), text_color=T.TEXT_MUTED)
+            lbl.pack(side="left", expand=True)
+            self._day_labels.append(lbl)
+
         self._activity_box.configure(state="disabled")
         self._activity_box.insert("1.0", "No activity recorded yet.")
         self._activity_box.configure(state="disabled")
@@ -162,6 +182,9 @@ class HomePage(ctk.CTkFrame):
                     evidence_count += len(files)
             self._stat_labels["evidence_val"].configure(text=str(evidence_count))
 
+            # 4. Weekly Chart Update
+            self._update_chart()
+
             running = self.monitor.is_running
             self._monitor_badge.configure(
                 text="● RUNNING" if running else "● STOPPED",
@@ -169,3 +192,28 @@ class HomePage(ctk.CTkFrame):
         except Exception:
             pass
         self.after(3000, self._refresh)
+
+    def _update_chart(self):
+        try:
+            log_file = "data/safenet_audit.log"
+            counts = [0] * 7
+            dates = [(datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(6, -1, -1)]
+            
+            if os.path.exists(log_file):
+                with open(log_file, "r") as f:
+                    for line in f:
+                        if "Threat:" in line or "AI Detected Image:" in line:
+                            for i, d in enumerate(dates):
+                                if d in line:
+                                    counts[i] += 1
+                                    break
+            
+            max_val = max(counts) if max(counts) > 0 else 1
+            for i, (count, bar, lbl) in enumerate(zip(counts, self._bars, self._day_labels)):
+                height = max(5, int((count / max_val) * 120))
+                bar.configure(height=height)
+                bar.configure(fg_color=T.DANGER if count > 5 else T.CYAN)
+                day_name = (datetime.now() - timedelta(days=6-i)).strftime("%a")
+                lbl.configure(text=day_name)
+        except Exception:
+            pass

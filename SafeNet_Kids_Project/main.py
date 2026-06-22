@@ -1,6 +1,8 @@
 """main.py — SafeNet Kids application entry point and state controller."""
 import customtkinter as ctk
 import os
+import nltk
+import logging
 from core.monitor import SafeNetMonitor
 from core.process_manager import ProcessManager
 from core.auth_manager import AuthManager
@@ -12,6 +14,20 @@ from gui.pages.register_page import RegisterPage
 from gui.pages.forgot_password_page import ForgotPasswordPage
 from gui.dashboard import Dashboard
 
+def check_first_run():
+    """Ensure required directories and NLTK data are present."""
+    # Create required folders
+    for folder in ["data", "assets"]:
+        if not os.path.exists(folder):
+            os.makedirs(folder, exist_ok=True)
+            
+    # Download NLTK data for NLP analysis
+    try:
+        nltk.download('punkt', quiet=True)
+        nltk.download('stopwords', quiet=True)
+        nltk.download('punkt_tab', quiet=True) # Recommended for newer NLTK
+    except Exception as e:
+        print(f"Warning: Could not download NLTK data: {e}")
 
 class SafeNetApp(ctk.CTk):
     """
@@ -27,32 +43,44 @@ class SafeNetApp(ctk.CTk):
         self.geometry("1100x700")
         self.resizable(False, False)
         self.configure(fg_color=T.BG_ROOT)
-        self.withdraw()  # Start hidden
-
-        # Backend Modules
-        self._init_backend()
+        
+        # Bring to front immediately
+        self.lift()
+        self.attributes('-topmost', True)
+        self.after(500, lambda: self.attributes('-topmost', False))
+        self.focus_force()
 
         # State Variables
         self.current_page = None
+        self.backend_ready = False
 
-        # Start with Splash Screen
+        # Start with Splash Screen FIRST
         self._show_splash()
+        
+        # Then start backend in a thread
+        import threading
+        threading.Thread(target=self._init_backend, daemon=True).start()
 
     def _init_backend(self):
-        os.makedirs("data", exist_ok=True)
-        if not os.path.exists("data/safenet_audit.log"):
-            open("data/safenet_audit.log", "w").close()
-
-        self.auth_manager = AuthManager()
-        self.process_manager = ProcessManager()
-        self.monitor = SafeNetMonitor(
-            "data/threat_database.json",
-            "data/safenet_audit.log",
-            self.process_manager
-        )
-
-        # Handle app closure
-        self.protocol("WM_DELETE_WINDOW", self._on_closing)
+        try:
+            check_first_run()
+            
+            if not os.path.exists("data/safenet_audit.log"):
+                open("data/safenet_audit.log", "w").close()
+    
+            self.auth_manager = AuthManager()
+            self.process_manager = ProcessManager()
+            self.monitor = SafeNetMonitor(
+                "data/threat_database.json",
+                "data/safenet_audit.log",
+                self.process_manager
+            )
+            
+            self.backend_ready = True
+            print("SAFE-NET KIDS: Backend security modules are ready!")
+        except Exception as e:
+            logging.error(f"SafeNetApp: Backend Init failed: {e}")
+            self.backend_ready = True # Allow user to see error or at least proceed
 
     def _on_closing(self):
         self.monitor.stop()
@@ -66,9 +94,18 @@ class SafeNetApp(ctk.CTk):
     # ── Page Transitions ──────────────────────────────────────────────
 
     def _show_splash(self):
-        self.deiconify()
-        self.current_page = SplashScreen(self, on_done=self._show_login)
+        self.current_page = SplashScreen(self, on_done=self._check_backend_and_proceed)
         self.current_page.pack(fill="both", expand=True)
+
+    def _check_backend_and_proceed(self):
+        if self.backend_ready:
+            # Handle app closure here once backend is ready
+            self.protocol("WM_DELETE_WINDOW", self._on_closing)
+            self._show_login()
+        else:
+            # Re-verify visibility and wait
+            self.lift()
+            self.after(500, self._check_backend_and_proceed)
 
     def _show_login(self, username_to_fill=None):
         self._clear_window()

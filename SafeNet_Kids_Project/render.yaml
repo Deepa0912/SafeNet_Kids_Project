@@ -1,0 +1,18 @@
+# render.yaml — Render deployment config
+services:
+  - type: web
+    name: safenet-kids
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false       # Set manually in Render dashboard
+      - key: DATABASE_URL
+        value: sqlite:///./data/safenet.db
+    disk:
+      name: safenet-data
+      mountPath: /app/data
+      sizeGB: 1

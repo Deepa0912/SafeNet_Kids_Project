@@ -19,6 +19,12 @@ class NLPAnalyzer:
         scores = self.analyze_text(text)
         return scores['compound'] <= threshold
 
+    def is_extreme_intent(self, text):
+        """Detects phrases specifying immediate harm or illegal acts."""
+        extreme_phrases = ["how to kill", "how to commit", "suicide", "end my life", "build a bomb", "hurt myself"]
+        text_lower = text.lower()
+        return any(phrase in text_lower for phrase in extreme_phrases)
+
     def calculate_toxicity_risk(self, text, keyword_match_found):
         if not text:
             return 0.0

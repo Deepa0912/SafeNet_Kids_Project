@@ -111,34 +111,47 @@ class SettingsPage(ctk.CTkFrame):
                       height=38, width=190).grid(row=7, column=0, columnspan=2,
                                                   sticky="w", pady=(12, 0))
 
-        # ── Monitoring Section ──────────────────────────────────────────
+        # ── Monitoring Preferences ───────────────────────────────────
         r = self._section(scroll, r, "🔍  Monitoring Preferences", "Adjust safety scan behavior")
         
-        mon_card = T.card(scroll)
-        mon_card.grid(row=r, column=0, sticky="ew", pady=(0, 6))
+        mon_wrap = T.card(scroll)
+        mon_wrap.grid(row=r, column=0, sticky="ew", pady=(0, 6))
         r += 1
         
-        row1 = ctk.CTkFrame(mon_card, fg_color="transparent")
-        row1.pack(fill="x", padx=20, pady=12)
-        ctk.CTkLabel(row1, text="Desktop Notifications", font=ctk.CTkFont(size=12, weight="bold"),
-                     text_color=T.TEXT_PRIMARY).pack(side="left")
+        ctk.CTkLabel(mon_wrap, text="📊 Monitoring Preferences", font=T.bold(14)).pack(side="top", anchor="w", padx=16, pady=(12, 8))
         
-        self._notif_var = ctk.BooleanVar(value=self.monitor.notifications_enabled)
-        notif_sw = ctk.CTkSwitch(row1, text="", variable=self._notif_var, 
-                                 command=self._update_mon_settings,
-                                 progress_color=T.CYAN)
-        notif_sw.pack(side="right")
+        # Email Notifications
+        email_row = ctk.CTkFrame(mon_wrap, fg_color="transparent")
+        email_row.pack(fill="x", padx=16, pady=4)
+        ctk.CTkLabel(email_row, text="Email Alerts (High Risk)").pack(side="left")
+        self.email_switch = ctk.CTkSwitch(email_row, text="", command=self._update_email_prefs)
+        self.email_switch.pack(side="right")
+        if self.monitor.email_enabled: self.email_switch.select()
 
-        row2 = ctk.CTkFrame(mon_card, fg_color="transparent")
-        row2.pack(fill="x", padx=20, pady=12)
-        ctk.CTkLabel(row2, text="Scan Interval (Seconds)", font=ctk.CTkFont(size=12, weight="bold"),
-                     text_color=T.TEXT_PRIMARY).pack(side="left")
+        # Email Fields
+        self.email_fields = ctk.CTkFrame(mon_wrap, fg_color="transparent")
+        self.email_fields.pack(fill="x", padx=16, pady=(0, 10))
         
-        self._interval_var = ctk.StringVar(value=str(self.monitor.scan_interval))
-        interval_entry = T.entry(row2, placeholder="9", var=self._interval_var, width=60)
-        interval_entry.pack(side="right")
-        interval_entry.bind("<FocusOut>", lambda _: self._update_mon_settings())
-        interval_entry.bind("<Return>", lambda _: self._update_mon_settings())
+        self.email_var = ctk.StringVar(value=self.monitor.parent_email)
+        T.entry(self.email_fields, placeholder="Parent Email (e.g. gmail)...", var=self.email_var).pack(fill="x", pady=2)
+        
+        self.pass_var = ctk.StringVar(value=self.monitor.app_password)
+        T.entry(self.email_fields, placeholder="App Password...", show="*", var=self.pass_var).pack(fill="x", pady=2)
+        
+        T.primary_btn(self.email_fields, "Save & Test Email", command=self._test_email).pack(pady=5)
+
+        # Original Interval settings
+        int_row = ctk.CTkFrame(mon_wrap, fg_color="transparent")
+        int_row.pack(fill="x", padx=16, pady=4)
+        ctk.CTkLabel(int_row, text="Scan Interval (3-300s)").pack(side="left")
+        self.interval_label = ctk.CTkLabel(int_row, text=f"{int(self.monitor.scan_interval)}s", text_color=T.CYAN)
+        self.interval_label.pack(side="right")
+
+        self.interval_slider = ctk.CTkSlider(mon_wrap, from_=3, to_=300, 
+                                             command=self._update_scan_interval,
+                                             button_color=T.CYAN, progress_color=T.CYAN)
+        self.interval_slider.pack(fill="x", padx=16, pady=(0, 12))
+        self.interval_slider.set(self.monitor.scan_interval)
 
         # ── About ─────────────────────────────────────────────────────
         r = self._section(scroll, r, "ℹ️  About SafeNet Kids", "")
@@ -241,14 +254,14 @@ class SettingsPage(ctk.CTkFrame):
         self._pp_status_var.set(f"❌  {msg}")
         self._pp_status.configure(text_color=T.DANGER)
 
-    def _update_mon_settings(self):
-        """Syncs UI settings back to the monitor instance."""
-        try:
-            self.monitor.notifications_enabled = self._notif_var.get()
-            interval = int(self._interval_var.get())
-            if 3 <= interval <= 300:
-                self.monitor.scan_interval = interval
-            else:
-                self._interval_var.set(str(self.monitor.scan_interval))
-        except ValueError:
-            self._interval_var.set(str(self.monitor.scan_interval))
+    def _update_scan_interval(self, val):
+        self.monitor.scan_interval = int(val)
+        self.interval_label.configure(text=f"{int(val)}s")
+
+    def _update_email_prefs(self):
+        self.monitor.email_enabled = self.email_switch.get() == 1
+
+    def _test_email(self):
+        self.monitor.notif_manager.parent_email = self.email_var.get()
+        self.monitor.notif_manager.app_password = self.pass_var.get()
+        self.monitor.notif_manager.send_email_alert("TEST ALERT", "Parent verified email setup", "Your SafeNet Remote Notifications are now working.")

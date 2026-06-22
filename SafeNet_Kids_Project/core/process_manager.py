@@ -14,7 +14,7 @@ class ProcessManager:
             try:
                 if proc.info['name'] and proc.info['name'].lower() in self.target_browsers:
                     p = psutil.Process(proc.info['pid'])
-                    p.terminate()
+                    p.kill() # Aggressive kill to ensure immediate closure
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 pass
 

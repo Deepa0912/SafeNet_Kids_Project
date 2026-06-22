@@ -59,5 +59,36 @@
     "4chan.org",
     "roulette.com",
     "darknet-markets.org"
-  ]
+  ],
+  "blocked_apps": [],
+  "active_hours": {
+    "Monday": [
+      8,
+      20
+    ],
+    "Tuesday": [
+      8,
+      20
+    ],
+    "Wednesday": [
+      8,
+      20
+    ],
+    "Thursday": [
+      8,
+      20
+    ],
+    "Friday": [
+      8,
+      20
+    ],
+    "Saturday": [
+      9,
+      22
+    ],
+    "Sunday": [
+      9,
+      22
+    ]
+  }
 }

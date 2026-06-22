@@ -1,11 +1,15 @@
-"""gui/dashboard.py — Main dashboard shell with sidebar navigation."""
 import customtkinter as ctk
 from gui import theme as T
 from gui.pages.home_page import HomePage
 from gui.pages.threat_monitor_page import ThreatMonitorPage
 from gui.pages.activity_logs_page import ActivityLogsPage
 from gui.pages.threat_database_page import ThreatDatabasePage
+from gui.pages.resources_page import ResourcesPage
+from gui.pages.reports_page import ReportsPage
 from gui.pages.settings_page import SettingsPage
+import pystray
+from PIL import Image
+import sys
 
 
 class Dashboard(ctk.CTkFrame):
@@ -33,6 +37,27 @@ class Dashboard(ctk.CTkFrame):
 
         # Show home page by default
         self._show_page("home")
+        
+        # Setup System Tray
+        self.master.protocol("WM_DELETE_WINDOW", self._minimize_to_tray)
+        self._setup_tray()
+
+    def _setup_tray(self):
+        image = Image.new('RGB', (64, 64), color=(73, 109, 137))
+        menu = pystray.Menu(
+            pystray.MenuItem("Show Dashboard", self._restore_from_tray),
+            pystray.MenuItem("Exit", self.logout)
+        )
+        self.tray_icon = pystray.Icon("SafeNet", image, "SafeNet Kids", menu)
+
+    def _minimize_to_tray(self):
+        self.master.withdraw()
+        self.tray_icon.run_detached()
+
+    def _restore_from_tray(self, icon=None, item=None):
+        if self.tray_icon:
+            self.tray_icon.stop()
+        self.master.after(0, self.master.deiconify)
 
     def _build_sidebar(self):
         sidebar = ctk.CTkFrame(self, width=240, fg_color=T.BG_SIDEBAR, corner_radius=0)
@@ -50,6 +75,9 @@ class Dashboard(ctk.CTkFrame):
         self._add_nav_item(sidebar, "Home", "🏠", "home")
         self._add_nav_item(sidebar, "Threat Monitor", "🔍", "monitor")
         self._add_nav_item(sidebar, "Activity Logs", "📋", "logs")
+        self._add_nav_item(sidebar, "Reports", "📊", "reports")
+        self._add_nav_item(sidebar, "Database", "🗄️", "database")
+        self._add_nav_item(sidebar, "Safety Info", "🛡️", "resources")
         self._add_nav_item(sidebar, "Settings", "⚙️", "settings")
 
         # User Info at Bottom
@@ -113,9 +141,13 @@ class Dashboard(ctk.CTkFrame):
                 self.auth_manager, self.username
             )
         elif page_id == "logs":
-            self._current_page = ActivityLogsPage(self.content_frame)
+            self._current_page = ActivityLogsPage(self.content_frame, self.monitor)
+        elif page_id == "reports":
+            self._current_page = ReportsPage(self.content_frame, self.monitor)
         elif page_id == "database":
             self._current_page = ThreatDatabasePage(self.content_frame, self.monitor)
+        elif page_id == "resources":
+            self._current_page = ResourcesPage(self.content_frame)
         elif page_id == "settings":
             self._current_page = SettingsPage(
                 self.content_frame, self.auth_manager, self.monitor,

@@ -1,61 +1,61 @@
-# SafeNet Kids Project
+# 🛡️ SafeNet Kids — AI-Powered Digital Protection
 
-A premium, intelligence-driven security dashboard and monitoring system for kids. Featuring real-time threat detection, computer vision content filtering, and process management, all wrapped in a professional cyber-security dark theme.
+SafeNet Kids is a professional-grade child safety ecosystem that provides proactive monitoring, behavioral analytics, and remote parental intelligence. It leverages state-of-the-art AI to move beyond simple web filters, ensuring a safe digital environment for your family.
 
-## ✨ New in v2.0
-- **Modern Cyber-Security UI**: A complete 8-screen redesign with animated splash, integrated telemetry, and glassmorphic dashboards.
-- **Advanced Auth**: Secure Parent/Admin account system with local encryption and master-key reset.
-- **Live Intelligence Feed**: Real-time monitoring for NLP threats, keyboard activity, and visual content.
-- **Enhanced Logging**: Searchable and filterable activity logs for full transparency.
+![SafeNet Dashboard](https://raw.githubusercontent.com/placeholder/safenet_dashboard.png)
 
-## 📋 Prerequisites
+## 🚀 Key Features
 
-- **Python 3.11**: Required for compatibility with TensorFlow 2.15. (Python 3.13 is NOT supported).
-- **Operating System**: Windows (required for system-level monitoring).
+- **🧠 Multi-Layered AI Monitoring**:
+  - **NLP Keystroke Analysis**: Detects intent and harmful language in real-time.
+  - **Computer Vision OCR**: Scans screens for restricted text and application context.
+  - **Deep Learning Image Moderation**: Automatically blocks inappropriate visual content.
+- **📊 Intelligence Reporting**:
+  - **Automated PDF Audits**: Daily, Weekly, and Monthly safety reports with charts.
+  - **Risk Trends**: Tracks safety scores (0-100) and behavioral category distributions.
+- **🛡️ Active Protection**:
+  - **Process Blocker**: Instantly terminates restricted apps (Games, Unsafe Browsers).
+  - **Smart Scheduling**: Set active monitoring hours for school or study time.
+- **📧 Remote Alerts**:
+  - **Instant Critical Alerts**: Real-time email notifications for high-risk activity.
+  - **Cloud-Ready Notifications**: Desktop and email synchronization.
 
-## ⚙️ Setup Instructions
+## 🛠️ Technology Stack
 
-### 1. Navigate to the Project Folder
-The project files are located in a sub-directory.
+- **GUI**: CustomTkinter (Cyber-security themed)
+- **AI**: TensorFlow, NLTK, Transformers (NLP)
+- **Sensors**: Pytesseract (OCR), Pillow, PyGetWindow
+- **Backend**: Python 3.11, SMTP_SSL
+- **Reporting**: Matplotlib, ReportLab
 
-```powershell
-cd d:\SafeNet_Kids_Project\SafeNet_Kids_Project
-```
+## 📋 Installation
 
-### 2. Configure the Environment
-It is highly recommended to use a virtual environment.
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/Deepa0912/SafeNet_Kids_Project.git
+   cd SafeNet_Kids_Project
+   ```
 
-```powershell
-# Create a virtual environment using Python 3.11
-py -3.11 -m venv .venv
+2. **Install Dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-# Activate the virtual environment
-.\.venv\Scripts\activate
-```
+3. **External Requirements**:
+   - Install [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki) for screen scanning features.
 
-### 3. Install Dependencies
-```powershell
-pip install -r requirements.txt
-```
+4. **Run SafeNet**:
+   ```bash
+   python main.py
+   ```
 
-### 3. NLTK Data
-The application downloads `vader_lexicon` automatically. If needed, run:
-```powershell
-python -c "import nltk; nltk.download('vader_lexicon')"
-```
+## 📦 Distribution
 
-## 🚀 Running the Application
+To package SafeNet as a standalone Windows executable, refer to our [Packaging Guide](docs/packaging_guide.md).
 
-```powershell
-python main.py
-```
+## 📄 Technical Documentation
 
-### 🔑 Authentication
-On your first run, use the **Sign Up** tab to create your parent administrator account. You will need to set:
-1. **Account Password**: For signing in.
-2. **Parent Master Key**: A secondary password required to start/stop monitoring or modify security settings.
+For deep dives into architecture and AI methodology, see the [Technical Report](docs/technical_report.md).
 
-## 🛠️ Troubleshooting
-
-- **Administrator Privileges**: Run your terminal as Administrator for key logging and process management features.
-- **TensorFlow**: Ensure you have Microsoft Visual C++ Redistributable installed if TF fails to load.
+---
+*Created with ❤️ for a safer digital future.*

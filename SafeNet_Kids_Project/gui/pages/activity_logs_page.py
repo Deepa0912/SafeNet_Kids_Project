@@ -1,14 +1,16 @@
 """gui/pages/activity_logs_page.py — Activity logs viewer with filters."""
 import customtkinter as ctk
 import os, time, threading, csv
+from datetime import datetime
 from tkinter import filedialog
 from gui import theme as T
 
 
 class ActivityLogsPage(ctk.CTkFrame):
 
-    def __init__(self, master):
+    def __init__(self, master, monitor=None):
         super().__init__(master, fg_color=T.BG_PRIMARY, corner_radius=0)
+        self.monitor = monitor
         self._running = True
         self._all_lines = []
         self._build()
@@ -28,6 +30,8 @@ class ActivityLogsPage(ctk.CTkFrame):
                     command=self._load).pack(side="right")
         T.danger_btn(hdr, text="🗑  Clear", width=100, height=34,
                      command=self._clear).pack(side="right", padx=(0, 8))
+        T.primary_btn(hdr, text="📧  Email Summary", width=130, height=34,
+                      command=self._send_summary_email).pack(side="right", padx=(0, 8))
         T.primary_btn(hdr, text="📥  Export", width=100, height=34,
                       command=self._export_report).pack(side="right", padx=(0, 8))
 
@@ -199,7 +203,6 @@ class ActivityLogsPage(ctk.CTkFrame):
                 writer = csv.writer(f)
                 writer.writerow(["Timestamp", "Log Entry"])
                 for line in lines:
-                    # Basic split if it follows standard log format
                     parts = line.split(" - ", 2)
                     if len(parts) == 3:
                         writer.writerow([parts[0], parts[2].strip()])
@@ -207,3 +210,12 @@ class ActivityLogsPage(ctk.CTkFrame):
                         writer.writerow(["Unknown", line.strip()])
         except Exception:
             pass
+
+    def _send_summary_email(self):
+        """Triggers an immediate summary report email via the notification manager."""
+        if self.monitor and hasattr(self.monitor, 'notif_manager'):
+            self.monitor.notif_manager.generate_summary_report(days=1)
+            # Log local success for feedback
+            self._log_box.configure(state="normal")
+            self._log_box.insert("1.0", f"--- Summary Report Requested at {datetime.now().strftime('%H:%M:%S')} ---\n")
+            self._log_box.configure(state="disabled")

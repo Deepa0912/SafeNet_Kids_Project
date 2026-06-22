@@ -101,7 +101,12 @@ class KeyboardMonitor:
         if final or len(text) > 20: # Log chunks or final sentences
             self.activity_logger.info(f"Typed: {text}")
 
-        # 2. Threat Detection - Keyword Matching
+        # 2. PANIC LOCK: Check for extreme intents (Self-Harm, Violence)
+        if self.nlp_analyzer and self.nlp_analyzer.is_extreme_intent(text):
+            self._trigger_threat_alert("Extreme Intent (Panic Lock)", text, text)
+            return
+
+        # 3. Threat Detection - Keyword Matching
         text_lower = text.lower()
         detected_category = None
         trigger_keyword = None

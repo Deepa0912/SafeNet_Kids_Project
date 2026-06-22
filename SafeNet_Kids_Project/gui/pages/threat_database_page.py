@@ -21,7 +21,7 @@ class ThreatDatabasePage(ctk.CTkFrame):
             with open(self.db_path, "r", encoding="utf-8") as f:
                 self.data = json.load(f)
         except Exception:
-            self.data = {"categories": {}, "blocked_sites": []}
+            self.data = {"categories": {}, "blocked_sites": [], "blocked_apps": [], "active_hours": {}}
 
     def _save_data(self):
         try:
@@ -53,9 +53,13 @@ class ThreatDatabasePage(ctk.CTkFrame):
         
         self.tabs.add("Keywords")
         self.tabs.add("Blocked Sites")
+        self.tabs.add("Blocked Apps")
+        self.tabs.add("Schedule")
 
         self._build_keywords_tab()
         self._build_sites_tab()
+        self._build_apps_tab()
+        self._build_schedule_tab()
 
     def _build_keywords_tab(self):
         tab = self.tabs.tab("Keywords")
@@ -158,3 +162,88 @@ class ThreatDatabasePage(ctk.CTkFrame):
             self.data["blocked_sites"].remove(site)
             self._save_data()
             self._refresh_sites()
+
+    def _build_apps_tab(self):
+        tab = self.tabs.tab("Blocked Apps")
+        tab.grid_columnconfigure(0, weight=1)
+        tab.grid_rowconfigure(1, weight=1)
+
+        top = ctk.CTkFrame(tab, fg_color="transparent")
+        top.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
+
+        self.new_app_var = ctk.StringVar()
+        app_entry = T.entry(top, placeholder="Add app process (e.g. discord.exe)...", var=self.new_app_var)
+        app_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
+
+        T.primary_btn(top, "Block App", width=100, command=self._add_app).pack(side="right")
+
+        self.app_list = ctk.CTkScrollableFrame(tab, fg_color=T.BG_PRIMARY)
+        self.app_list.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
+        self._refresh_apps()
+
+    def _refresh_apps(self):
+        for widget in self.app_list.winfo_children():
+            widget.destroy()
+        
+        for app in self.data.get("blocked_apps", []):
+            row = ctk.CTkFrame(self.app_list, fg_color="transparent")
+            row.pack(fill="x", padx=10, pady=2)
+            ctk.CTkLabel(row, text=app, font=ctk.CTkFont(size=12)).pack(side="left")
+            T.danger_btn(row, "Remove", width=70, height=24, 
+                         command=lambda a=app: self._remove_app(a)).pack(side="right")
+
+    def _add_app(self):
+        app = self.new_app_var.get().strip().lower()
+        if app:
+            if "blocked_apps" not in self.data: self.data["blocked_apps"] = []
+            if app not in self.data["blocked_apps"]:
+                self.data["blocked_apps"].append(app)
+                self._save_data()
+                self._refresh_apps()
+                self.new_app_var.set("")
+
+    def _remove_app(self, app):
+        if "blocked_apps" in self.data and app in self.data["blocked_apps"]:
+            self.data["blocked_apps"].remove(app)
+            self._save_data()
+            self._refresh_apps()
+
+    def _build_schedule_tab(self):
+        tab = self.tabs.tab("Schedule")
+        tab.grid_columnconfigure(0, weight=1)
+        
+        info = ctk.CTkLabel(tab, text="Set Active Monitoring Hours (24h format)", font=ctk.CTkFont(size=12, slant="italic"))
+        info.pack(pady=10)
+
+        days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        self.day_vars = {}
+
+        for day in days:
+            row = ctk.CTkFrame(tab, fg_color="transparent")
+            row.pack(fill="x", padx=20, pady=5)
+            
+            ctk.CTkLabel(row, text=day, width=100, anchor="w").pack(side="left")
+            
+            # Start/End Hour
+            hours = [str(i).zfill(2) for i in range(25)]
+            
+            curr_start, curr_end = self.data.get("active_hours", {}).get(day, [0, 24])
+            
+            start_var = ctk.StringVar(value=str(curr_start).zfill(2))
+            end_var = ctk.StringVar(value=str(curr_end).zfill(2))
+            self.day_vars[day] = (start_var, end_var)
+
+            ctk.CTkOptionMenu(row, values=hours, variable=start_var, width=70, 
+                             command=lambda _, d=day: self._update_schedule(d)).pack(side="left", padx=5)
+            ctk.CTkLabel(row, text="to").pack(side="left")
+            ctk.CTkOptionMenu(row, values=hours, variable=end_var, width=70,
+                             command=lambda _, d=day: self._update_schedule(d)).pack(side="left", padx=5)
+
+    def _update_schedule(self, day):
+        start = int(self.day_vars[day][0].get())
+        end = int(self.day_vars[day][1].get())
+        
+        if "active_hours" not in self.data: self.data["active_hours"] = {}
+        self.data["active_hours"][day] = [start, end]
+        self._save_data()
+        self.monitor.active_hours = self.data["active_hours"]
