@@ -3,10 +3,11 @@
 
 FROM node:20-slim AS frontend-build
 WORKDIR /app/frontend
-COPY frontend-parent/package*.json ./
+COPY ./frontend-parent/package*.json ./
 RUN npm ci
-COPY frontend-parent/ ./
+COPY ./frontend-parent/ ./
 RUN npm run build
+
 # Output: /app/frontend/dist
 
 FROM python:3.11-bookworm AS backend
