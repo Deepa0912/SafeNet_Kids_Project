@@ -33,7 +33,8 @@ except Exception:
     OCR = False
 
 # ── Config ────────────────────────────────────────────────────────────────────
-API_BASE  = os.getenv("SAFENET_API", "http://localhost:8000")
+API_BASE  = os.getenv("SAFENET_API", "https://safenetkidsproject-production.up.railway.app")
+
 LINK_CODE = os.getenv("LINK_CODE", "")      # Set by child during setup
 CHILD_ID  = None
 PARENT_ID = None
@@ -42,6 +43,27 @@ DEVICE_ID = secrets.token_hex(8)
 KEYBOARD_BUFFER = []
 LAST_WINDOW     = ""
 SCREEN_INTERVAL = 30   # seconds between periodic screenshots
+
+def close_active_window():
+    """Identifies the active browser window and closes it."""
+    if not PYGETWINDOW:
+        return
+    try:
+        active_window = gw.getActiveWindow()
+        if not active_window:
+            return
+            
+        title = active_window.title.lower()
+        # Detect common browsers
+        browsers = ["chrome", "edge", "firefox", "opera", "safari", "brave", "incognito"]
+        is_browser = any(b in title for b in browsers)
+        
+        if is_browser:
+            print(f"[SafeNet Agent] 🛡️ ACTIVE DEFENSE: Closing Browser — {active_window.title}")
+            active_window.close() # Close current tab/window
+    except Exception as e:
+        print(f"[SafeNet Agent] 🛡️ Active Defense Error: {e}")
+
 
 
 # ── Startup: Link Device ──────────────────────────────────────────────────────
@@ -125,6 +147,7 @@ async def send_screenshot(reason: str = "monitoring"):
                     if is_threat and category != "Safe":
                         reason = f"Gemini Detected: {category}"
                         await send_activity("screenshot_vision", f"[Gemini Vision] {category}")
+                        close_active_window() # 🛡️ INSTANT ACTION
                         show_warning_popup(category)
             except Exception as ve:
                 print(f"[Agent] Gemini Vision error: {ve}")
@@ -229,7 +252,11 @@ _loop = None
 async def _process_keyboard(text: str):
     result = await send_activity("keyboard", text)
     if result.get("is_threat"):
+        # Take immediate screenshot before closing window as evidence
+        await send_screenshot(f"Keylog Threat: {result.get('threat_type')}")
+        close_active_window() # 🛡️ INSTANT ACTION
         show_warning_popup(result.get("threat_type", "Unsafe Content"))
+
 
 
 # ── App Monitor ───────────────────────────────────────────────────────────────
