@@ -208,8 +208,8 @@ class SafeNetMonitor:
         self.risk_engine.calculate_score()
         
         # Panic Lock: Instantly terminate browsers for high-risk categories
-        # Covers: Illegal, Abusive/Harassment, Self-Harm, Adult Content, Extreme Intents
-        critical_categories = ["Self-Harm", "Abuse", "Illegal", "Harassment", "Violence", "Adult", "Extreme Intent"]
+        # Covers: Illegal, Abusive/Harassment, Self-Harm, Adult Content, Extreme Intents, Gambling
+        critical_categories = ["Self-Harm", "Abuse", "Illegal", "Harassment", "Violence", "Adult", "Extreme Intent", "Gambling"]
         is_critical = any(cat in threat_type or cat in trigger_word for cat in critical_categories)
         
         if self.process_manager and is_critical:

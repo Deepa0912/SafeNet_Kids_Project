@@ -173,7 +173,8 @@ async def send_screenshot(reason: str = "monitoring"):
         # Also analyze OCR text for threats via backend AI
         if ocr_text.strip():
             result = await send_activity("screenshot_ocr", ocr_text[:1000])
-            if result.get("is_threat") and not _gemini_agent_model:
+            if result.get("is_threat") and not _gemini_agent_client:
+                close_active_window() # 🛡️ INSTANT ACTION
                 show_warning_popup(result.get("threat_type", "Unsafe Content"))
 
     except Exception as e:
