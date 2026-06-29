@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { parentAPI } from '../api'
-import { Lock, Wifi, WifiOff, Plus, Trash2, Shield } from 'lucide-react'
+import { Lock, WifiOff, Plus, Trash2, Shield } from 'lucide-react'
 
 function ControlBtn({ icon: Icon, label, onClick, color = 'bg-[#1e2d45]', textColor = 'text-white' }) {
     const [loading, setLoading] = useState(false)
@@ -82,7 +82,6 @@ export default function ControlPage({ selectedChild, children }) {
                 <div className="flex flex-wrap gap-3">
                     <ControlBtn icon={Lock} label="🔒 Lock Device" onClick={() => control('lock')} color="bg-red-500/10" textColor="text-red-400" />
                     <ControlBtn icon={WifiOff} label="📵 Pause Internet" onClick={() => control('pause_internet')} color="bg-yellow-500/10" textColor="text-yellow-400" />
-                    <ControlBtn icon={Wifi} label="🌐 Resume Internet" onClick={() => control('resume_internet')} color="bg-blue-500/10" textColor="text-blue-400" />
                 </div>
             </Section>
 

@@ -10,6 +10,6 @@ Dim folder
 folder = CreateObject("Scripting.FileSystemObject").GetParentFolderName(WScript.ScriptFullName)
 
 ' Run monitor.py silently (0 = hidden window, False = don't wait)
-shell.Run "cmd /c cd /d """ & folder & """ && set SAFENET_API=https://safenetkidsproject-production.up.railway.app && python monitor.py", 0, False
+shell.Run "cmd /c cd /d """ & folder & """ && python agent/monitor.py", 0, False
 
 WScript.Quit
