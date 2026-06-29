@@ -3,19 +3,21 @@ import { io } from 'socket.io-client'
 import { parentAPI } from '../api'
 import {
     LayoutDashboard, Bell, Camera, Shield,
-    Settings, LogOut, ChevronDown
+    Settings, LogOut, MonitorSmartphone
 } from 'lucide-react'
 import DashboardPage from './DashboardPage'
 import AlertsPage from './AlertsPage'
 import ScreenshotsPage from './ScreenshotsPage'
 import ControlPage from './ControlPage'
 import SettingsPage from './SettingsPage'
+import SetupGuidePage from './SetupGuidePage'
 
 const NAV = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { id: 'alerts', icon: Bell, label: 'Alerts' },
     { id: 'screenshots', icon: Camera, label: 'Screenshots' },
     { id: 'control', icon: Shield, label: 'Control Center' },
+    { id: 'setup', icon: MonitorSmartphone, label: 'Connect Device' },
     { id: 'settings', icon: Settings, label: 'Settings' },
 ]
 
@@ -87,8 +89,8 @@ export default function Dashboard({ user, onLogout }) {
             case 'alerts': return <AlertsPage     {...props} />
             case 'screenshots': return <ScreenshotsPage {...props} />
             case 'control': return <ControlPage    {...props} />
+            case 'setup': return <SetupGuidePage />
             case 'settings': return <SettingsPage   {...props} onChildAdded={refreshChildren} />
-
             default: return <DashboardPage  {...props} />
         }
     }
