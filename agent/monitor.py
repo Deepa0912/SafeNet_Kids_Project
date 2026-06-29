@@ -2,10 +2,14 @@
 agent/monitor.py — SafeNet Kids Child Monitoring Agent
 Runs on the child's device. Monitors keyboard, browser, apps, and screen.
 """
-import asyncio, time, os, base64, platform, sys, secrets
+import asyncio, time, os, base64, platform, sys, secrets, subprocess
 import httpx
 import psutil
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load settings from .env file
+load_dotenv()
 
 # Optional imports with graceful fallbacks
 try:
@@ -40,9 +44,14 @@ CHILD_ID  = None
 PARENT_ID = None
 DEVICE_ID = secrets.token_hex(8)
 
-KEYBOARD_BUFFER = []
-LAST_WINDOW     = ""
-SCREEN_INTERVAL = 300  # seconds between periodic screenshots (5 min — conserves Gemini quota)
+KEYBOARD_BUFFER   = []
+LAST_WINDOW       = ""
+SCREEN_INTERVAL   = 300  # seconds between periodic screenshots (5 min)
+
+# ── Device state tracking (avoids re-locking every heartbeat) ─────────────────
+_device_locked    = False
+_internet_paused  = False
+
 
 def close_active_window():
     """Identifies the active browser window and closes it."""
@@ -52,17 +61,104 @@ def close_active_window():
         active_window = gw.getActiveWindow()
         if not active_window:
             return
-            
         title = active_window.title.lower()
-        # Detect common browsers
         browsers = ["chrome", "edge", "firefox", "opera", "safari", "brave", "incognito"]
-        is_browser = any(b in title for b in browsers)
-        
-        if is_browser:
+        if any(b in title for b in browsers):
             print(f"[SafeNet Agent] 🛡️ ACTIVE DEFENSE: Closing Browser — {active_window.title}")
-            active_window.close() # Close current tab/window
+            active_window.close()
     except Exception as e:
         print(f"[SafeNet Agent] 🛡️ Active Defense Error: {e}")
+
+
+# ── OS-Level Control Enforcement ──────────────────────────────────────────────
+
+def lock_device():
+    """Lock the Windows workstation screen immediately."""
+    print("[SafeNet Agent] 🔒 Locking device...")
+    try:
+        if platform.system() == "Windows":
+            import ctypes
+            ctypes.windll.user32.LockWorkStation()
+        elif platform.system() == "Darwin":
+            os.system("pmset displaysleepnow")
+        else:
+            os.system("loginctl lock-session")
+    except Exception as e:
+        print(f"[SafeNet Agent] Lock error: {e}")
+
+
+def _get_active_adapters() -> list:
+    """Return list of enabled Wi-Fi / Ethernet adapter names on Windows."""
+    try:
+        out = subprocess.check_output(
+            ["netsh", "interface", "show", "interface"],
+            text=True, errors="ignore"
+        )
+        adapters = []
+        for line in out.splitlines():
+            # Lines look like: 'Enabled    Connected    Dedicated     Wi-Fi'
+            parts = line.split()
+            if len(parts) >= 4 and parts[0] in ("Enabled", "Disabled"):
+                name = " ".join(parts[3:])
+                adapters.append((parts[0], name))
+        return adapters
+    except Exception:
+        return []
+
+
+def pause_internet():
+    """Disable all active network adapters to pause internet access."""
+    print("[SafeNet Agent] 📵 Pausing internet...")
+    if platform.system() != "Windows":
+        print("[SafeNet Agent] Internet pause only supported on Windows.")
+        return
+    try:
+        for state, name in _get_active_adapters():
+            if state == "Enabled":
+                subprocess.run(
+                    ["netsh", "interface", "set", "interface", name, "disable"],
+                    capture_output=True
+                )
+                print(f"[SafeNet Agent]   Disabled adapter: {name}")
+    except Exception as e:
+        print(f"[SafeNet Agent] Pause internet error: {e}")
+
+
+def resume_internet():
+    """Re-enable all disabled network adapters."""
+    print("[SafeNet Agent] 🌐 Resuming internet...")
+    if platform.system() != "Windows":
+        return
+    try:
+        for state, name in _get_active_adapters():
+            if state == "Disabled":
+                subprocess.run(
+                    ["netsh", "interface", "set", "interface", name, "enable"],
+                    capture_output=True
+                )
+                print(f"[SafeNet Agent]   Enabled adapter: {name}")
+    except Exception as e:
+        print(f"[SafeNet Agent] Resume internet error: {e}")
+
+
+def enforce_blocked_urls(blocked_urls: list):
+    """Close browser if its title/URL contains a blocked domain."""
+    if not PYGETWINDOW or not blocked_urls:
+        return
+    try:
+        active_window = gw.getActiveWindow()
+        if not active_window:
+            return
+        title = active_window.title.lower()
+        for url in blocked_urls:
+            domain = url.lower().replace("https://", "").replace("http://", "").split("/")[0]
+            if domain and domain in title:
+                print(f"[SafeNet Agent] 🚫 Blocked URL detected in title: {domain}")
+                active_window.close()
+                show_warning_popup(f"Blocked Website: {domain}")
+                break
+    except Exception as e:
+        print(f"[SafeNet Agent] URL enforce error: {e}")
 
 
 
@@ -203,19 +299,42 @@ def show_warning_popup(category: str):
             print(f"[POPUP] {msg}")
 
 
-# ── Heartbeat ─────────────────────────────────────────────────────────────────
+# ── Heartbeat + Command Enforcement ──────────────────────────────────────────
 async def heartbeat_loop():
-    async with httpx.AsyncClient(timeout=10) as client:
-        while True:
-            try:
+    global _device_locked, _internet_paused
+    while True:
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
                 r = await client.post(f"{API_BASE}/api/child/heartbeat",
                                       json={"child_id": CHILD_ID, "is_online": True})
                 data = r.json()
-                if data.get("device_locked"):
-                    show_warning_popup("Device Locked by Parent")
-            except Exception:
-                pass
-            await asyncio.sleep(30)
+
+            should_lock   = data.get("device_locked", False)
+            should_pause  = data.get("internet_paused", False)
+
+            # ── Lock / Unlock enforcement ──
+            if should_lock and not _device_locked:
+                _device_locked = True
+                lock_device()
+                show_warning_popup("Device Locked by Parent")
+            elif not should_lock and _device_locked:
+                _device_locked = False
+                print("[SafeNet Agent] 🔓 Device unlocked by parent.")
+                # Windows auto-unlocks when parent lifts the Lock flag;
+                # nothing to do here — the lock screen is already up and the
+                # user simply logs back in after the parent unlocks.
+
+            # ── Internet pause / resume enforcement ──
+            if should_pause and not _internet_paused:
+                _internet_paused = True
+                pause_internet()
+            elif not should_pause and _internet_paused:
+                _internet_paused = False
+                resume_internet()
+
+        except Exception as e:
+            print(f"[SafeNet Agent] Heartbeat error: {e}")
+        await asyncio.sleep(15)  # Poll every 15 s for faster response
 
 
 # ── Keyboard Monitor ─────────────────────────────────────────────────────────
@@ -260,12 +379,11 @@ async def _process_keyboard(text: str):
 
 
 
-# ── App Monitor ───────────────────────────────────────────────────────────────
+# ── App + URL Monitor ────────────────────────────────────────────────────────
 async def app_monitor_loop():
     config = {}
     while True:
         try:
-            # Poll config (blocked apps list)
             async with httpx.AsyncClient(timeout=5) as client:
                 r = await client.get(f"{API_BASE}/api/child/config/{CHILD_ID}")
                 config = r.json()
@@ -273,7 +391,9 @@ async def app_monitor_loop():
             pass
 
         blocked_apps = config.get("blocked_apps", [])
+        blocked_urls = config.get("blocked_urls", [])
 
+        # ── Kill blocked applications ──
         for proc in psutil.process_iter(["name", "pid"]):
             try:
                 pname = proc.info["name"].lower()
@@ -285,7 +405,10 @@ async def app_monitor_loop():
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
 
-        await asyncio.sleep(15)
+        # ── Enforce blocked URLs via window title ──
+        enforce_blocked_urls(blocked_urls)
+
+        await asyncio.sleep(10)  # Check every 10 s
 
 
 # ── Screen Monitor ────────────────────────────────────────────────────────────
