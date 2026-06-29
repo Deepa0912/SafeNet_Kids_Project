@@ -7,9 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List
-from ..database import get_db, Child, ActivityLog, ThreatLog, Screenshot, Notification, RiskScore, BlockedWebsite, BlockedApplication
+from ..database import get_db, Child, ActivityLog, ThreatLog, Screenshot, Notification, RiskScore, BlockedWebsite, BlockedApplication, BedtimeSchedule
 from ..ai_service import analyze_text
 from ..sockets import notify_parent
+from ..email_service import send_threat_alert
 
 router = APIRouter(prefix="/api/child", tags=["child"])
 
@@ -42,8 +43,16 @@ def heartbeat(body: HeartbeatRequest, db: Session = Depends(get_db)):
     if child:
         child.is_online = body.is_online
         db.commit()
-    return {"device_locked": child.device_locked if child else False,
-            "internet_paused": child.internet_paused if child else False}
+    # Fetch bedtime schedule for enforcement
+    bedtime = db.query(BedtimeSchedule).filter(BedtimeSchedule.child_id == body.child_id).first()
+    bedtime_data = None
+    if bedtime and bedtime.enabled:
+        bedtime_data = {"enabled": True, "sleep_hour": bedtime.sleep_hour, "wake_hour": bedtime.wake_hour}
+    return {
+        "device_locked":   child.device_locked   if child else False,
+        "internet_paused": child.internet_paused if child else False,
+        "bedtime_schedule": bedtime_data,
+    }
 
 
 class ActivityRequest(BaseModel):
@@ -96,6 +105,16 @@ async def log_activity(body: ActivityRequest, db: Session = Depends(get_db)):
             "source": body.log_type, "text": body.value[:200],
             "ts": datetime.utcnow().isoformat(),
         })
+
+        # Email alert — fire and forget if configured
+        if child.parent and child.parent.email_alerts_enabled and child.parent.alert_email:
+            send_threat_alert(
+                to_email=child.parent.alert_email,
+                child_name=child.name,
+                threat_type=result.threat_type,
+                confidence=result.confidence,
+                source_text=body.value[:300],
+            )
 
     return response
 

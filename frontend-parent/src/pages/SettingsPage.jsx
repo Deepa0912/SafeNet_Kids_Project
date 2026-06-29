@@ -1,10 +1,20 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { parentAPI } from '../api'
-import { Plus, MonitorSmartphone, ChevronRight, Download, Key, CheckCircle2 } from 'lucide-react'
+import { Plus, MonitorSmartphone, ChevronRight, Download, Key, CheckCircle2, Mail, Bell, Save } from 'lucide-react'
 
 export default function SettingsPage({ children, selectedChild, onChildAdded, onNavigate }) {
     const [childName, setChildName] = useState('')
     const [msg, setMsg] = useState('')
+    const [alertEmail, setAlertEmail] = useState('')
+    const [emailEnabled, setEmailEnabled] = useState(false)
+    const [emailMsg, setEmailMsg] = useState('')
+
+    useEffect(() => {
+        parentAPI.getEmailSettings().then(r => {
+            setAlertEmail(r.data.alert_email || '')
+            setEmailEnabled(r.data.email_alerts_enabled || false)
+        }).catch(() => { })
+    }, [])
 
     const addChild = async (e) => {
         e.preventDefault()
@@ -14,9 +24,16 @@ export default function SettingsPage({ children, selectedChild, onChildAdded, on
             const { link_code } = r.data
             setMsg(`✅ Child added! Linking code: ${link_code} — Give this code to the monitoring agent.`)
             setChildName('')
-            if (onChildAdded) onChildAdded()  // 🔄 Refresh children list
+            if (onChildAdded) onChildAdded()
         } catch { setMsg('❌ Failed to add child.') }
+    }
 
+    const saveEmail = async () => {
+        try {
+            await parentAPI.saveEmailSettings({ alert_email: alertEmail, email_alerts_enabled: emailEnabled })
+            setEmailMsg('✅ Email settings saved!')
+            setTimeout(() => setEmailMsg(''), 3000)
+        } catch { setEmailMsg('❌ Failed to save.') }
     }
 
     return (
@@ -61,6 +78,35 @@ export default function SettingsPage({ children, selectedChild, onChildAdded, on
                         ))}
                     </div>
                 }
+            </div>
+
+            {/* Email Alerts */}
+            <div className="bg-[#141d2e] border border-[#1f3050] rounded-xl p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                    <h3 className="text-white font-bold text-sm flex items-center gap-2">
+                        <Mail size={14} className="text-cyan-400" /> Email Alerts
+                    </h3>
+                    <button onClick={() => setEmailEnabled(e => !e)}
+                        className={`relative w-12 h-6 rounded-full transition-colors ${emailEnabled ? 'bg-cyan-400' : 'bg-slate-700'}`}>
+                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${emailEnabled ? 'translate-x-7' : 'translate-x-1'}`} />
+                    </button>
+                </div>
+                <p className="text-slate-500 text-xs">Receive an email whenever a threat is detected on your child's device.</p>
+                <div className="flex gap-2">
+                    <input
+                        value={alertEmail}
+                        onChange={e => setAlertEmail(e.target.value)}
+                        placeholder="parent@email.com"
+                        type="email"
+                        className="flex-1 bg-[#1e2d45] border border-[#1f3050] rounded-xl text-white placeholder-slate-600 px-4 py-2.5 text-sm outline-none focus:border-cyan-400 transition"
+                    />
+                    <button onClick={saveEmail}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-cyan-400 text-black font-bold rounded-xl text-sm hover:opacity-90 transition">
+                        <Save size={14} /> Save
+                    </button>
+                </div>
+                {emailMsg && <p className="text-sm text-cyan-300 bg-cyan-400/5 border border-cyan-400/20 rounded-lg px-3 py-2">{emailMsg}</p>}
+                <p className="text-slate-600 text-xs">💡 Configure SMTP_HOST, SMTP_USER, SMTP_PASS in Railway environment variables to enable sending.</p>
             </div>
 
             {/* Connect Device CTA */}

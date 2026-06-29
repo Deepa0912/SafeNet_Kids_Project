@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { parentAPI } from '../api'
 import { Bar, Doughnut } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend } from 'chart.js'
-import { Activity, AlertTriangle, Shield, Globe } from 'lucide-react'
+import { Activity, AlertTriangle, Shield, Globe, FileText } from 'lucide-react'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend)
 
@@ -45,6 +45,25 @@ export default function DashboardPage({ selectedChild }) {
                 <StatCard label="Threats (7d)" value={stats.total_threats} badge="Last week" color="#00d4ff" />
                 <StatCard label="Status" value={stats.child?.is_online ? '🟢' : '⚫'} badge={stats.child?.is_online ? 'Online' : 'Offline'} color="#00e676" />
                 <StatCard label="Blocked Sites" value={stats.blocked_sites_count || 0} badge="Configured" color="#7c4dff" />
+            </div>
+
+            {/* Download Report row */}
+            <div className="flex items-center justify-between bg-[#141d2e] border border-[#1f3050] rounded-xl px-5 py-3">
+                <div className="flex items-center gap-3">
+                    <FileText size={16} className="text-purple-400" />
+                    <div>
+                        <p className="text-white font-semibold text-sm">Safety Report</p>
+                        <p className="text-slate-500 text-xs">Download a PDF summary of activity and threats</p>
+                    </div>
+                </div>
+                <div className="flex gap-2">
+                    {['weekly', 'monthly'].map(period => (
+                        <button key={period} onClick={() => parentAPI.downloadReport(selectedChild.id, period)}
+                            className="px-3 py-1.5 bg-[#1e2d45] border border-[#1f3050] text-slate-300 text-xs font-semibold rounded-lg hover:border-purple-400/40 hover:text-purple-300 transition capitalize">
+                            {period}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {/* Charts row */}

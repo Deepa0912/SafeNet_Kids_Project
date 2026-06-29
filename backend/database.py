@@ -24,13 +24,15 @@ def get_db():
 
 class Parent(Base):
     __tablename__ = "parents"
-    id            = Column(Integer, primary_key=True, index=True)
-    username      = Column(String(80), unique=True, nullable=False)
-    email         = Column(String(120), unique=True, nullable=True)
-    hashed_pw     = Column(String(200), nullable=False)
-    created_at    = Column(DateTime, default=datetime.utcnow)
-    children      = relationship("Child", back_populates="parent")
-    notifications = relationship("Notification", back_populates="parent")
+    id                    = Column(Integer, primary_key=True, index=True)
+    username              = Column(String(80), unique=True, nullable=False)
+    email                 = Column(String(120), unique=True, nullable=True)
+    hashed_pw             = Column(String(200), nullable=False)
+    alert_email           = Column(String(120), nullable=True)
+    email_alerts_enabled  = Column(Boolean, default=False)
+    created_at            = Column(DateTime, default=datetime.utcnow)
+    children              = relationship("Child", back_populates="parent")
+    notifications         = relationship("Notification", back_populates="parent")
 
 
 class Child(Base):
@@ -121,6 +123,16 @@ class Notification(Base):
     is_read       = Column(Boolean, default=False)
     timestamp     = Column(DateTime, default=datetime.utcnow)
     parent        = relationship("Parent", back_populates="notifications")
+
+
+class BedtimeSchedule(Base):
+    __tablename__ = "bedtime_schedules"
+    id            = Column(Integer, primary_key=True, index=True)
+    child_id      = Column(Integer, ForeignKey("children.id"), unique=True)
+    enabled       = Column(Boolean, default=False)
+    sleep_hour    = Column(Integer, default=22)   # hour child must sleep (0-23)
+    wake_hour     = Column(Integer, default=7)    # hour child may use device (0-23)
+    updated_at    = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 def init_db():

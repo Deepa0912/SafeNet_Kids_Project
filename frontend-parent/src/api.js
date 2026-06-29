@@ -38,4 +38,10 @@ export const parentAPI = {
     controlDevice: (childId, action) => api.post(`/parent/control/${childId}`, { action }),
     getNotifications: () => api.get('/parent/notifications'),
     markRead: (id) => api.patch(`/parent/notifications/${id}/read`),
+    getBedtime: (childId) => api.get(`/parent/bedtime/${childId}`),
+    setBedtime: (childId, data) => api.put(`/parent/bedtime/${childId}`, data),
+    downloadReport: (childId, period = 'weekly') =>
+        window.open(`/api/reports/${childId}?period=${period}`, '_blank'),
+    getEmailSettings: () => api.get('/parent/email-settings'),
+    saveEmailSettings: (data) => api.put('/parent/email-settings', data),
 }
