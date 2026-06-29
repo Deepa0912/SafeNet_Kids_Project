@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { parentAPI } from '../api'
-import { Plus } from 'lucide-react'
+import { Plus, MonitorSmartphone, ChevronRight, Download, Key, CheckCircle2 } from 'lucide-react'
 
-export default function SettingsPage({ children, selectedChild, onChildAdded }) {
+export default function SettingsPage({ children, selectedChild, onChildAdded, onNavigate }) {
     const [childName, setChildName] = useState('')
     const [msg, setMsg] = useState('')
 
@@ -63,16 +63,30 @@ export default function SettingsPage({ children, selectedChild, onChildAdded }) 
                 }
             </div>
 
-            {/* How to connect agent */}
+            {/* Connect Device CTA */}
             <div className="bg-[#141d2e] border border-[#1f3050] rounded-xl p-6">
-                <h3 className="text-white font-bold text-sm mb-3">How to Connect Child Device</h3>
-                <ol className="text-slate-400 text-sm space-y-2 list-decimal list-inside">
-                    <li>Add a child profile above to get a linking code.</li>
-                    <li>Copy the linking code and go to the child's device.</li>
-                    <li>Run: <code className="text-cyan-400 bg-[#0f1523] rounded px-2 py-0.5 font-mono text-xs">python agent/monitor.py</code></li>
-                    <li>Enter the linking code when prompted.</li>
-                    <li>Monitoring begins instantly. 🛡️</li>
-                </ol>
+                <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center flex-shrink-0">
+                        <MonitorSmartphone size={18} className="text-cyan-400" />
+                    </div>
+                    <div className="flex-1">
+                        <h3 className="text-white font-bold text-sm">Connect Child Device</h3>
+                        <p className="text-slate-500 text-xs mt-1 mb-4">
+                            Install the SafeNet monitoring agent on your child's computer using the step-by-step guide.
+                            Includes download links for all required files.
+                        </p>
+                        <div className="flex flex-wrap gap-3 text-xs text-slate-400 mb-4">
+                            <span className="flex items-center gap-1.5"><Download size={11} className="text-purple-400" /> Download agent files</span>
+                            <span className="flex items-center gap-1.5"><Key size={11} className="text-yellow-400" /> Enter linking code</span>
+                            <span className="flex items-center gap-1.5"><CheckCircle2 size={11} className="text-emerald-400" /> Start monitoring</span>
+                        </div>
+                        <button
+                            onClick={() => onNavigate && onNavigate('setup')}
+                            className="flex items-center gap-2 px-4 py-2 bg-cyan-400 text-black font-bold rounded-xl text-sm hover:opacity-90 transition">
+                            Open Setup Guide <ChevronRight size={14} />
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     )

@@ -98,7 +98,7 @@ export default function Dashboard({ user, onLogout }) {
             case 'screenshots': return <ScreenshotsPage {...props} />
             case 'control': return <ControlPage    {...props} />
             case 'setup': return <SetupGuidePage />
-            case 'settings': return <SettingsPage   {...props} onChildAdded={refreshChildren} />
+            case 'settings': return <SettingsPage   {...props} onChildAdded={refreshChildren} onNavigate={setPage} />
             default: return <DashboardPage  {...props} />
         }
     }
