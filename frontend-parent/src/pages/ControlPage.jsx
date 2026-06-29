@@ -29,16 +29,15 @@ export default function ControlPage({ selectedChild, children }) {
     }, [])
 
     const control = async (action) => {
-        if (!selectedChild) return
+        if (!selectedChild) { notify('⚠️ No child selected — choose a child from the sidebar first.'); return }
         await parentAPI.controlDevice(selectedChild.id, action)
-        notify(`Applied: ${action}`)
+        notify(`✅ Applied: ${action}`)
     }
 
     const addSite = async (e) => {
         e.preventDefault()
         if (!newSite.trim()) return
-        const r = await parentAPI.addBlockedSite(newSite.trim(), selectedChild?.id)
-        setSites(r.data ? [...sites, r.data] : sites)
+        await parentAPI.addBlockedSite(newSite.trim(), selectedChild?.id)
         parentAPI.getBlockedSites().then(r => setSites(r.data))
         setNewSite('')
         notify('Site blocked!')

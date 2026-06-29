@@ -123,8 +123,8 @@ def get_blocked_sites(parent: Parent = Depends(get_current_parent), db: Session 
 @router.post("/blocked-sites")
 def add_blocked_site(body: BlockSiteRequest, parent: Parent = Depends(get_current_parent), db: Session = Depends(get_db)):
     row = BlockedWebsite(parent_id=parent.id, child_id=body.child_id, url=body.url.strip(), reason=body.reason)
-    db.add(row); db.commit()
-    return {"status": "ok", "id": row.id}
+    db.add(row); db.commit(); db.refresh(row)
+    return {"id": row.id, "url": row.url, "reason": row.reason}
 
 @router.delete("/blocked-sites/{site_id}")
 def remove_blocked_site(site_id: int, parent: Parent = Depends(get_current_parent), db: Session = Depends(get_db)):
@@ -149,8 +149,8 @@ def get_blocked_apps(parent: Parent = Depends(get_current_parent), db: Session =
 @router.post("/blocked-apps")
 def add_blocked_app(body: BlockAppRequest, parent: Parent = Depends(get_current_parent), db: Session = Depends(get_db)):
     row = BlockedApplication(parent_id=parent.id, child_id=body.child_id, app_name=body.app_name.strip())
-    db.add(row); db.commit()
-    return {"status": "ok", "id": row.id}
+    db.add(row); db.commit(); db.refresh(row)
+    return {"id": row.id, "app_name": row.app_name}
 
 @router.delete("/blocked-apps/{app_id}")
 def remove_blocked_app(app_id: int, parent: Parent = Depends(get_current_parent), db: Session = Depends(get_db)):
