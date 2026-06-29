@@ -3,7 +3,7 @@ import { io } from 'socket.io-client'
 import { parentAPI } from '../api'
 import {
     LayoutDashboard, Bell, Camera, Shield,
-    Settings, LogOut, MonitorSmartphone
+    Settings, LogOut, MonitorSmartphone, Sun, Moon
 } from 'lucide-react'
 import DashboardPage from './DashboardPage'
 import AlertsPage from './AlertsPage'
@@ -32,6 +32,14 @@ const THREAT_COLORS = {
 
 export default function Dashboard({ user, onLogout }) {
     const [page, setPage] = useState('dashboard')
+    const [theme, setTheme] = useState(() => localStorage.getItem('sn_theme') || 'dark')
+
+    useEffect(() => {
+        document.documentElement.setAttribute('data-theme', theme)
+        localStorage.setItem('sn_theme', theme)
+    }, [theme])
+
+    const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark')
     const [children, setChildren] = useState([])
     const [selectedChild, setSelectedChild] = useState(null)
     const [toasts, setToasts] = useState([])
@@ -150,6 +158,10 @@ export default function Dashboard({ user, onLogout }) {
                         <div className="text-white text-sm font-semibold truncate">{user.username}</div>
                         <div className="text-slate-500 text-xs">Parent Admin</div>
                     </div>
+                    <button onClick={toggleTheme} title={theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'}
+                        className="p-2 rounded-lg bg-yellow-400/10 text-yellow-400 hover:bg-yellow-400/20 transition">
+                        {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                    </button>
                     <button onClick={onLogout} title="Sign out"
                         className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition">
                         <LogOut size={16} />
