@@ -14,6 +14,7 @@ from .routers.auth_router   import router as auth_router
 from .routers.parent_router import router as parent_router
 from .routers.child_router  import router as child_router
 from .routers.report_router import router as report_router
+from .routers.agent_router  import router as agent_router
 
 # ── App Setup ─────────────────────────────────────────────────────────────────
 app = FastAPI(title="SafeNet Kids API", version="2.0.0", docs_url="/docs", redoc_url="/redoc")
@@ -31,6 +32,7 @@ app.include_router(auth_router)
 app.include_router(parent_router)
 app.include_router(child_router)
 app.include_router(report_router)
+app.include_router(agent_router)
 
 # ── Startup ───────────────────────────────────────────────────────────────────
 @app.on_event("startup")

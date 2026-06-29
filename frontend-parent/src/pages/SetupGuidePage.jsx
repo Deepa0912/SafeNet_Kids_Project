@@ -132,22 +132,36 @@ function StepDownload() {
     return (
         <div className="space-y-4">
             <p className="text-slate-400 text-sm">
-                Copy the <strong className="text-white">agent folder</strong> from the SafeNet installation
-                to the child's computer — via USB drive, shared folder, or cloud storage.
+                Download the agent package and copy it to the child's computer — via USB drive, shared folder, or cloud storage.
             </p>
+
+            {/* Big ZIP download button */}
+            <a href="/api/agent/download" download="safenet_agent.zip"
+                className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-base hover:opacity-90 transition shadow-lg shadow-cyan-500/20">
+                <Download size={20} />
+                Download All Files as ZIP
+            </a>
+
+            {/* Individual files */}
+            <p className="text-slate-500 text-xs uppercase tracking-wider font-semibold pt-1">Or download individually</p>
             <div className="space-y-2">
                 {files.map(f => (
-                    <div key={f.name} className="flex items-center gap-3 bg-[#0a0d14] border border-[#1f3050] rounded-xl px-4 py-2.5">
-                        <span className="font-mono text-cyan-300 text-xs w-48 flex-shrink-0">{f.name}</span>
+                    <div key={f.name} className="flex items-center gap-3 bg-[#0a0d14] border border-[#1f3050] rounded-xl px-4 py-2.5 hover:border-cyan-400/30 transition group">
+                        <span className="font-mono text-cyan-300 text-xs w-44 flex-shrink-0">{f.name}</span>
                         <span className="text-slate-500 text-xs flex-1">{f.desc}</span>
                         <Pill color="bg-slate-700/60 text-slate-400" text={f.size} />
+                        <a href={`/api/agent/file/${f.name}`} download={f.name}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1e2d45] border border-[#1f3050] text-slate-400 text-xs font-medium hover:text-cyan-400 hover:border-cyan-400/40 transition opacity-0 group-hover:opacity-100">
+                            <Download size={11} /> Download
+                        </a>
                     </div>
                 ))}
             </div>
+
             <div className="flex items-start gap-3 bg-cyan-400/5 border border-cyan-400/20 rounded-xl px-4 py-3">
                 <BookOpen size={14} className="text-cyan-400 flex-shrink-0 mt-0.5" />
                 <p className="text-cyan-300 text-xs">
-                    Place the entire <code className="bg-[#0a0d14] px-1 rounded">agent/</code> folder in a permanent
+                    Extract the ZIP and place the <code className="bg-[#0a0d14] px-1 rounded">safenet_agent/</code> folder in a permanent
                     location such as <code className="bg-[#0a0d14] px-1 rounded">C:\SafeNet\agent\</code> on the child's PC.
                 </p>
             </div>
