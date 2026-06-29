@@ -40,8 +40,15 @@ export const parentAPI = {
     markRead: (id) => api.patch(`/parent/notifications/${id}/read`),
     getBedtime: (childId) => api.get(`/parent/bedtime/${childId}`),
     setBedtime: (childId, data) => api.put(`/parent/bedtime/${childId}`, data),
-    downloadReport: (childId, period = 'weekly') =>
-        window.open(`/api/reports/${childId}?period=${period}`, '_blank'),
+    downloadReport: async (childId, period = 'weekly') => {
+        const res = await api.get(`/reports/${childId}?period=${period}`, { responseType: 'blob' })
+        const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `safenet_report_${period}.pdf`
+        a.click()
+        URL.revokeObjectURL(url)
+    },
     getEmailSettings: () => api.get('/parent/email-settings'),
     saveEmailSettings: (data) => api.put('/parent/email-settings', data),
 }

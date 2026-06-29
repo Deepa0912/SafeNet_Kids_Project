@@ -1,7 +1,7 @@
 """
 backend/routers/child_router.py — Child device endpoints (used by monitoring agent)
 """
-import os, base64, secrets
+import os, base64, secrets, asyncio
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -106,15 +106,12 @@ async def log_activity(body: ActivityRequest, db: Session = Depends(get_db)):
             "ts": datetime.utcnow().isoformat(),
         })
 
-        # Email alert — fire and forget if configured
+        # Email alert — non-blocking thread executor so SMTP doesn't freeze event loop
         if child.parent and child.parent.email_alerts_enabled and child.parent.alert_email:
-            send_threat_alert(
-                to_email=child.parent.alert_email,
-                child_name=child.name,
-                threat_type=result.threat_type,
-                confidence=result.confidence,
-                source_text=body.value[:300],
-            )
+            loop = asyncio.get_event_loop()
+            loop.run_in_executor(None, send_threat_alert,
+                child.parent.alert_email, child.name,
+                result.threat_type, result.confidence, body.value[:300])
 
     return response
 
