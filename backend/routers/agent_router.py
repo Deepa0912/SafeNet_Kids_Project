@@ -2,8 +2,8 @@
 backend/routers/agent_router.py — Serves agent files for download
 """
 import os, io, zipfile
-from fastapi import APIRouter
-from fastapi.responses import StreamingResponse, FileResponse, HTTPException
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse, FileResponse
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
 
