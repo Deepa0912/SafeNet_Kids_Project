@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { parentAPI } from '../api'
-import { Moon, Sun, Clock, Shield, Save, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Moon, Sun, Clock, Shield, Save, CheckCircle2, AlertCircle, BarChart2 } from 'lucide-react'
+import { Bar } from 'react-chartjs-2'
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
 function HourSelect({ value, onChange, label }) {
     return (
@@ -30,6 +33,7 @@ export default function ScreenTimePage({ selectedChild }) {
     const [wakeHour, setWakeHour] = useState(7)
     const [toast, setToast] = useState('')
     const [loading, setLoading] = useState(false)
+    const [chartData, setChartData] = useState(null)
 
     const notify = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
@@ -40,6 +44,21 @@ export default function ScreenTimePage({ selectedChild }) {
                 setEnabled(r.data.enabled)
                 setSleepHour(r.data.sleep_hour)
                 setWakeHour(r.data.wake_hour)
+            }).catch(() => { })
+        parentAPI.getScreentimeStats(selectedChild.id)
+            .then(r => {
+                const days = r.data.days || []
+                setChartData({
+                    labels: days.map(d => d.date),
+                    datasets: [{
+                        label: 'Activity Events',
+                        data: days.map(d => d.count),
+                        backgroundColor: 'rgba(0,212,255,0.3)',
+                        borderColor: '#00d4ff',
+                        borderWidth: 2,
+                        borderRadius: 6,
+                    }]
+                })
             }).catch(() => { })
     }, [selectedChild])
 
@@ -174,6 +193,24 @@ export default function ScreenTimePage({ selectedChild }) {
                     Save Schedule
                 </button>
             </div>
+
+            {/* 7-Day Activity Chart */}
+            {chartData && (
+                <div className="bg-[#141d2e] border border-[#1f3050] rounded-2xl p-6">
+                    <h2 className="text-white font-bold text-sm flex items-center gap-2 mb-4">
+                        <BarChart2 size={15} className="text-cyan-400" /> 7-Day Activity
+                    </h2>
+                    <Bar data={chartData} options={{
+                        responsive: true,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { ticks: { color: '#475569' }, grid: { display: false } },
+                            y: { ticks: { color: '#475569' }, grid: { color: '#1f3050' }, beginAtZero: true }
+                        }
+                    }} />
+                    <p className="text-slate-600 text-xs mt-2 text-center">Daily monitored activity events</p>
+                </div>
+            )}
         </div>
     )
 }

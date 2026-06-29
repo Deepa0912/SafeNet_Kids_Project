@@ -228,8 +228,106 @@ def update_email_settings(body: EmailSettingsRequest,
             "alert_email": parent.alert_email,
             "email_alerts_enabled": parent.email_alerts_enabled}
 
+
 @router.get("/email-settings")
 def get_email_settings(parent: Parent = Depends(get_current_parent), db: Session = Depends(get_db)):
     return {"alert_email": parent.alert_email,
             "email_alerts_enabled": parent.email_alerts_enabled}
 
+
+# ── Weekly AI Summary ────────────────────────────────────────────────────────
+
+@router.get("/ai-summary/{child_id}")
+def get_ai_summary(child_id: int, parent: Parent = Depends(get_current_parent), db: Session = Depends(get_db)):
+    """Generate a Gemini-powered natural language safety summary for the past 7 days."""
+    child = db.query(Child).filter(Child.id == child_id, Child.parent_id == parent.id).first()
+    if not child:
+        raise HTTPException(404, "Child not found.")
+
+    now = datetime.utcnow()
+    since = now - timedelta(days=7)
+    threats  = db.query(ThreatLog).filter(ThreatLog.child_id == child_id, ThreatLog.timestamp >= since).all()
+    activity = db.query(ActivityLog).filter(ActivityLog.child_id == child_id, ActivityLog.timestamp >= since).count()
+
+    cat_counts = {}
+    for t in threats:
+        cat_counts[t.threat_type] = cat_counts.get(t.threat_type, 0) + 1
+
+    # Build context for Gemini
+    threat_summary = ", ".join(f"{k}: {v}" for k, v in cat_counts.items()) or "none"
+    prompt = f"""You are SafeNet Kids, a child safety AI assistant. Write a concise, friendly weekly safety summary for a parent.
+
+Child name: {child.name}
+Period: Last 7 days
+Total activity events: {activity}
+Threats detected: {len(threats)}
+Threat breakdown: {threat_summary}
+
+Write 2-3 sentences. Be reassuring if no threats, or cautionary if threats exist. Start with the child's name. Keep it under 60 words."""
+
+    summary = None
+
+    # Try Gemini
+    try:
+        GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+        if GEMINI_API_KEY:
+            from google import genai as google_genai
+            client = google_genai.Client(api_key=GEMINI_API_KEY)
+            resp = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
+            summary = resp.text.strip()
+    except Exception as e:
+        pass
+
+    # Fallback if Gemini unavailable
+    if not summary:
+        if len(threats) == 0:
+            summary = f"{child.name} had a safe week! No threats were detected across {activity} monitored events. Keep up the great parenting!"
+        else:
+            top = max(cat_counts, key=cat_counts.get)
+            summary = f"{child.name}'s week had {len(threats)} threat(s) detected, primarily {top}. Review the Alerts page for details and consider adjusting blocked sites."
+
+    return {"summary": summary, "threat_count": len(threats), "activity_count": activity, "categories": cat_counts}
+
+
+# ── Screen Time Daily Stats ──────────────────────────────────────────────────
+
+@router.get("/screentime-stats/{child_id}")
+def get_screentime_stats(child_id: int, parent: Parent = Depends(get_current_parent), db: Session = Depends(get_db)):
+    """Return daily activity counts for the last 7 days for the screen time chart."""
+    child = db.query(Child).filter(Child.id == child_id, Child.parent_id == parent.id).first()
+    if not child:
+        raise HTTPException(404, "Child not found.")
+
+    now = datetime.utcnow()
+    days = []
+    for i in range(6, -1, -1):
+        day_start = (now - timedelta(days=i)).replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end   = day_start + timedelta(days=1)
+        count = db.query(ActivityLog).filter(
+            ActivityLog.child_id == child_id,
+            ActivityLog.timestamp >= day_start,
+            ActivityLog.timestamp < day_end,
+        ).count()
+        days.append({"date": day_start.strftime("%a %d"), "count": count})
+    return {"days": days}
+
+
+# ── Password Change ──────────────────────────────────────────────────────────
+
+from ..auth import verify_password, hash_password
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password:     str
+
+@router.put("/change-password")
+def change_password(body: PasswordChangeRequest,
+                    parent: Parent = Depends(get_current_parent),
+                    db: Session = Depends(get_db)):
+    if not verify_password(body.current_password, parent.hashed_pw):
+        raise HTTPException(400, "Current password is incorrect.")
+    if len(body.new_password) < 6:
+        raise HTTPException(400, "New password must be at least 6 characters.")
+    parent.hashed_pw = hash_password(body.new_password)
+    db.commit()
+    return {"status": "ok", "message": "Password changed successfully."}

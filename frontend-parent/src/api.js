@@ -51,4 +51,7 @@ export const parentAPI = {
     },
     getEmailSettings: () => api.get('/parent/email-settings'),
     saveEmailSettings: (data) => api.put('/parent/email-settings', data),
+    getAISummary: (childId) => api.get(`/parent/ai-summary/${childId}`),
+    getScreentimeStats: (childId) => api.get(`/parent/screentime-stats/${childId}`),
+    changePassword: (data) => api.put('/parent/change-password', data),
 }

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { parentAPI } from '../api'
 import { Bar, Doughnut } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend } from 'chart.js'
-import { Activity, AlertTriangle, Shield, Globe, FileText } from 'lucide-react'
+import { Activity, AlertTriangle, Shield, Globe, FileText, Sparkles } from 'lucide-react'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend)
 
@@ -13,6 +13,18 @@ const COLORS = { 'Adult Content': '#ff5252', 'Gambling': '#ffca28', 'Drug Relate
 export default function DashboardPage({ selectedChild }) {
     const [stats, setStats] = useState(null)
     const [activity, setActivity] = useState([])
+    const [aiSummary, setAiSummary] = useState(null)
+    const [aiLoading, setAiLoading] = useState(false)
+
+    const generateSummary = async () => {
+        if (!selectedChild) return
+        setAiLoading(true)
+        try {
+            const r = await parentAPI.getAISummary(selectedChild.id)
+            setAiSummary(r.data)
+        } catch { setAiSummary({ summary: 'Could not generate summary. Check your connection.' }) }
+        setAiLoading(false)
+    }
 
     useEffect(() => {
         if (!selectedChild) return
@@ -90,6 +102,38 @@ export default function DashboardPage({ selectedChild }) {
                         </div>
                     }
                 </Card>
+            </div>
+
+            {/* AI Summary */}
+            <div className="bg-[#141d2e] border border-[#1f3050] rounded-xl p-5">
+                <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                        <Sparkles size={15} className="text-yellow-400" />
+                        <h3 className="text-white font-bold text-sm">Weekly AI Safety Summary</h3>
+                    </div>
+                    <button onClick={generateSummary} disabled={aiLoading}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-yellow-400/10 border border-yellow-400/20 text-yellow-400 text-xs font-semibold rounded-lg hover:bg-yellow-400/20 transition disabled:opacity-50">
+                        {aiLoading
+                            ? <div className="w-3 h-3 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+                            : <Sparkles size={11} />}
+                        {aiLoading ? 'Generating…' : 'Generate'}
+                    </button>
+                </div>
+                {aiSummary
+                    ? <div className="space-y-3">
+                        <p className="text-slate-300 text-sm leading-relaxed italic">"{aiSummary.summary}"</p>
+                        {aiSummary.threat_count !== undefined && (
+                            <div className="flex gap-4 text-xs text-slate-500">
+                                <span>🛡️ {aiSummary.threat_count} threats</span>
+                                <span>📊 {aiSummary.activity_count} events</span>
+                                {Object.entries(aiSummary.categories || {}).map(([k, v]) => (
+                                    <span key={k}>⚠️ {k}: {v}</span>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    : <p className="text-slate-600 text-sm">Click Generate to get a Gemini AI summary of this week's safety report.</p>
+                }
             </div>
         </div>
     )

@@ -8,6 +8,9 @@ export default function SettingsPage({ children, selectedChild, onChildAdded, on
     const [alertEmail, setAlertEmail] = useState('')
     const [emailEnabled, setEmailEnabled] = useState(false)
     const [emailMsg, setEmailMsg] = useState('')
+    const [curPw, setCurPw] = useState('')
+    const [newPw, setNewPw] = useState('')
+    const [pwMsg, setPwMsg] = useState('')
 
     useEffect(() => {
         parentAPI.getEmailSettings().then(r => {
@@ -34,6 +37,19 @@ export default function SettingsPage({ children, selectedChild, onChildAdded, on
             setEmailMsg('✅ Email settings saved!')
             setTimeout(() => setEmailMsg(''), 3000)
         } catch { setEmailMsg('❌ Failed to save.') }
+    }
+
+    const savePassword = async () => {
+        if (!curPw || !newPw) { setPwMsg('❌ Fill in both fields.'); return }
+        if (newPw.length < 6) { setPwMsg('❌ New password must be at least 6 characters.'); return }
+        try {
+            await parentAPI.changePassword({ current_password: curPw, new_password: newPw })
+            setPwMsg('✅ Password changed successfully!')
+            setCurPw(''); setNewPw('')
+            setTimeout(() => setPwMsg(''), 4000)
+        } catch (e) {
+            setPwMsg('❌ ' + (e.response?.data?.detail || 'Failed to change password.'))
+        }
     }
 
     return (
@@ -107,6 +123,24 @@ export default function SettingsPage({ children, selectedChild, onChildAdded, on
                 </div>
                 {emailMsg && <p className="text-sm text-cyan-300 bg-cyan-400/5 border border-cyan-400/20 rounded-lg px-3 py-2">{emailMsg}</p>}
                 <p className="text-slate-600 text-xs">💡 Configure SMTP_HOST, SMTP_USER, SMTP_PASS in Railway environment variables to enable sending.</p>
+            </div>
+
+            {/* Change Password */}
+            <div className="bg-[#141d2e] border border-[#1f3050] rounded-xl p-6 space-y-4">
+                <h3 className="text-white font-bold text-sm flex items-center gap-2">
+                    <Bell size={14} className="text-red-400" /> Change Password
+                </h3>
+                <div className="space-y-2">
+                    <input value={curPw} onChange={e => setCurPw(e.target.value)} type="password" placeholder="Current password"
+                        className="w-full bg-[#1e2d45] border border-[#1f3050] rounded-xl text-white placeholder-slate-600 px-4 py-2.5 text-sm outline-none focus:border-cyan-400 transition" />
+                    <input value={newPw} onChange={e => setNewPw(e.target.value)} type="password" placeholder="New password (min 6 chars)"
+                        className="w-full bg-[#1e2d45] border border-[#1f3050] rounded-xl text-white placeholder-slate-600 px-4 py-2.5 text-sm outline-none focus:border-cyan-400 transition" />
+                </div>
+                <button onClick={savePassword}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-red-500/20 border border-red-500/30 text-red-400 font-bold rounded-xl text-sm hover:bg-red-500/30 transition">
+                    <Save size={14} /> Update Password
+                </button>
+                {pwMsg && <p className={`text-sm rounded-lg px-3 py-2 ${pwMsg.startsWith('✅') ? 'text-emerald-300 bg-emerald-400/5 border border-emerald-400/20' : 'text-red-300 bg-red-400/5 border border-red-400/20'}`}>{pwMsg}</p>}
             </div>
 
             {/* Connect Device CTA */}
