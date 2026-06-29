@@ -85,7 +85,7 @@ export default function ControlPage({ selectedChild, children }) {
             </Section>
 
             {/* Blocked Sites */}
-            <Section title="Blocked Websites" icon={WifiOff}>
+            <Section title="Blocked Websites" icon={Shield}>
                 <form onSubmit={addSite} className="flex gap-2 mb-4">
                     <input value={newSite} onChange={e => setNewSite(e.target.value)} placeholder="e.g. example.com"
                         className="flex-1 bg-[#1e2d45] border border-[#1f3050] rounded-xl text-white placeholder-slate-600 px-4 py-2.5 text-sm outline-none focus:border-cyan-400 transition" />
