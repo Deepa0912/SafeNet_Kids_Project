@@ -1,0 +1,11 @@
+# SafeNet Kids — Agent Dependencies
+# Run: pip install -r requirements.txt
+
+# Agent core
+psutil>=5.9.0
+Pillow>=10.0.0
+pynput>=1.7.6
+pygetwindow>=0.0.9
+httpx[http2]>=0.24.1
+python-dotenv>=1.0.0
+google-genai>=0.3.0
