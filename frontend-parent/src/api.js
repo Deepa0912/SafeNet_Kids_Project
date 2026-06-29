@@ -38,8 +38,6 @@ export const parentAPI = {
     controlDevice: (childId, action) => api.post(`/parent/control/${childId}`, { action }),
     getNotifications: () => api.get('/parent/notifications'),
     markRead: (id) => api.patch(`/parent/notifications/${id}/read`),
-    getBedtime: (childId) => api.get(`/parent/bedtime/${childId}`),
-    setBedtime: (childId, data) => api.put(`/parent/bedtime/${childId}`, data),
     downloadReport: async (childId, period = 'weekly') => {
         const res = await api.get(`/reports/${childId}?period=${period}`, { responseType: 'blob' })
         const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List
-from ..database import get_db, Child, ActivityLog, ThreatLog, Screenshot, Notification, RiskScore, BlockedWebsite, BlockedApplication, BedtimeSchedule
+from ..database import get_db, Child, ActivityLog, ThreatLog, Screenshot, Notification, RiskScore, BlockedWebsite, BlockedApplication
 from ..ai_service import analyze_text
 from ..sockets import notify_parent
 from ..email_service import send_threat_alert
@@ -43,15 +43,9 @@ def heartbeat(body: HeartbeatRequest, db: Session = Depends(get_db)):
     if child:
         child.is_online = body.is_online
         db.commit()
-    # Fetch bedtime schedule for enforcement
-    bedtime = db.query(BedtimeSchedule).filter(BedtimeSchedule.child_id == body.child_id).first()
-    bedtime_data = None
-    if bedtime and bedtime.enabled:
-        bedtime_data = {"enabled": True, "sleep_hour": bedtime.sleep_hour, "wake_hour": bedtime.wake_hour}
     return {
         "device_locked":   child.device_locked   if child else False,
         "internet_paused": child.internet_paused if child else False,
-        "bedtime_schedule": bedtime_data,
     }
 
 

@@ -324,20 +324,6 @@ async def heartbeat_loop():
 
             should_lock   = data.get("device_locked", False)
             should_pause  = data.get("internet_paused", False)
-            bedtime       = data.get("bedtime_schedule")  # {enabled, sleep_hour, wake_hour}
-
-            # ── Bedtime enforcement ──
-            if bedtime and bedtime.get("enabled"):
-                current_hour = datetime.now().hour
-                sleep_h = bedtime["sleep_hour"]
-                wake_h  = bedtime["wake_hour"]
-                # Nighttime if sleep_hour > wake_hour (e.g. 22→7) or within wrapped range
-                if sleep_h > wake_h:
-                    in_bedtime = current_hour >= sleep_h or current_hour < wake_h
-                else:
-                    in_bedtime = sleep_h <= current_hour < wake_h
-                if in_bedtime:
-                    should_lock = True  # bedtime overrides parent lock state
 
             # ── Lock / Unlock enforcement ──
             if should_lock and not _device_locked:

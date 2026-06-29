@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from ..database import (get_db, Parent, Child, ActivityLog, ThreatLog,
                          Screenshot, BlockedWebsite, BlockedApplication,
-                         RiskScore, Notification, BedtimeSchedule)
+                         RiskScore, Notification)
 from ..auth import get_current_parent
 from ..sockets import notify_parent
 
@@ -175,41 +175,6 @@ def mark_read(notif_id: int, parent: Parent = Depends(get_current_parent), db: S
     if row:
         row.is_read = True; db.commit()
     return {"status": "ok"}
-
-
-# ── Bedtime Schedule ──────────────────────────────────────────────────────────
-
-class BedtimeRequest(BaseModel):
-    enabled:    bool
-    sleep_hour: int   # 0-23
-    wake_hour:  int   # 0-23
-
-@router.get("/bedtime/{child_id}")
-def get_bedtime(child_id: int, parent: Parent = Depends(get_current_parent), db: Session = Depends(get_db)):
-    child = db.query(Child).filter(Child.id == child_id, Child.parent_id == parent.id).first()
-    if not child:
-        raise HTTPException(404, "Child not found.")
-    row = db.query(BedtimeSchedule).filter(BedtimeSchedule.child_id == child_id).first()
-    if not row:
-        return {"enabled": False, "sleep_hour": 22, "wake_hour": 7}
-    return {"enabled": row.enabled, "sleep_hour": row.sleep_hour, "wake_hour": row.wake_hour}
-
-@router.put("/bedtime/{child_id}")
-def set_bedtime(child_id: int, body: BedtimeRequest,
-               parent: Parent = Depends(get_current_parent), db: Session = Depends(get_db)):
-    child = db.query(Child).filter(Child.id == child_id, Child.parent_id == parent.id).first()
-    if not child:
-        raise HTTPException(404, "Child not found.")
-    row = db.query(BedtimeSchedule).filter(BedtimeSchedule.child_id == child_id).first()
-    if not row:
-        row = BedtimeSchedule(child_id=child_id)
-        db.add(row)
-    row.enabled    = body.enabled
-    row.sleep_hour = body.sleep_hour
-    row.wake_hour  = body.wake_hour
-    db.commit()
-    return {"status": "ok", "enabled": row.enabled, "sleep_hour": row.sleep_hour, "wake_hour": row.wake_hour}
-
 
 # ── Email Alert Settings ──────────────────────────────────────────────────────
 

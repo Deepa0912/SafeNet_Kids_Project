@@ -125,16 +125,6 @@ class Notification(Base):
     parent        = relationship("Parent", back_populates="notifications")
 
 
-class BedtimeSchedule(Base):
-    __tablename__ = "bedtime_schedules"
-    id            = Column(Integer, primary_key=True, index=True)
-    child_id      = Column(Integer, ForeignKey("children.id"), unique=True)
-    enabled       = Column(Boolean, default=False)
-    sleep_hour    = Column(Integer, default=22)   # hour child must sleep (0-23)
-    wake_hour     = Column(Integer, default=7)    # hour child may use device (0-23)
-    updated_at    = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-
 def init_db():
     os.makedirs("data", exist_ok=True)
     os.makedirs("data/screenshots", exist_ok=True)
