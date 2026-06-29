@@ -87,56 +87,69 @@ def lock_device():
         print(f"[SafeNet Agent] Lock error: {e}")
 
 
-def _get_active_adapters() -> list:
-    """Return list of enabled Wi-Fi / Ethernet adapter names on Windows."""
+# Track which adapters we disabled so resume re-enables only those
+_paused_adapter_names: list = []
+
+
+def _is_admin() -> bool:
+    """Check if the process has administrator privileges."""
     try:
-        out = subprocess.check_output(
-            ["netsh", "interface", "show", "interface"],
-            text=True, errors="ignore"
-        )
-        adapters = []
-        for line in out.splitlines():
-            # Lines look like: 'Enabled    Connected    Dedicated     Wi-Fi'
-            parts = line.split()
-            if len(parts) >= 4 and parts[0] in ("Enabled", "Disabled"):
-                name = " ".join(parts[3:])
-                adapters.append((parts[0], name))
-        return adapters
+        import ctypes
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
     except Exception:
-        return []
+        return False
 
 
 def pause_internet():
-    """Disable all active network adapters to pause internet access."""
+    """Disable all connected network adapters using PowerShell."""
+    global _paused_adapter_names
     print("[SafeNet Agent] 📵 Pausing internet...")
     if platform.system() != "Windows":
         print("[SafeNet Agent] Internet pause only supported on Windows.")
         return
+    if not _is_admin():
+        print("[SafeNet Agent] ⚠️  WARNING: Not running as Administrator — Pause Internet may fail.")
     try:
-        for state, name in _get_active_adapters():
-            if state == "Enabled":
-                subprocess.run(
-                    ["netsh", "interface", "set", "interface", name, "disable"],
-                    capture_output=True
-                )
-                print(f"[SafeNet Agent]   Disabled adapter: {name}")
+        # Get names of all currently UP adapters, then disable them
+        ps = (
+            "$up = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }; "
+            "$up | Disable-NetAdapter -Confirm:$false; "
+            "$up.Name -join '|'"
+        )
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+            capture_output=True, text=True, timeout=15
+        )
+        names_str = result.stdout.strip().split("\n")[-1]  # last line has the names
+        _paused_adapter_names = [n.strip() for n in names_str.split("|") if n.strip()]
+        if _paused_adapter_names:
+            print(f"[SafeNet Agent]   Disabled: {_paused_adapter_names}")
+        else:
+            print(f"[SafeNet Agent]   No adapters found or disabled. stderr: {result.stderr.strip()}")
     except Exception as e:
         print(f"[SafeNet Agent] Pause internet error: {e}")
 
 
 def resume_internet():
-    """Re-enable all disabled network adapters."""
+    """Re-enable the exact adapters that were paused."""
+    global _paused_adapter_names
     print("[SafeNet Agent] 🌐 Resuming internet...")
     if platform.system() != "Windows":
         return
     try:
-        for state, name in _get_active_adapters():
-            if state == "Disabled":
-                subprocess.run(
-                    ["netsh", "interface", "set", "interface", name, "enable"],
-                    capture_output=True
-                )
-                print(f"[SafeNet Agent]   Enabled adapter: {name}")
+        targets = _paused_adapter_names if _paused_adapter_names else []
+        if targets:
+            names_ps = ",".join(f"'{n}'" for n in targets)
+            ps = f"Enable-NetAdapter -Name @({names_ps}) -Confirm:$false"
+        else:
+            # Fallback: enable any disabled adapter we might have missed
+            ps = "Get-NetAdapter | Where-Object { $_.Status -ne 'Up' } | Enable-NetAdapter -Confirm:$false"
+        subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+            capture_output=True, timeout=15
+        )
+        print(f"[SafeNet Agent]   Re-enabled: {targets or 'all disabled adapters'}")
+        _paused_adapter_names = []
     except Exception as e:
         print(f"[SafeNet Agent] Resume internet error: {e}")
 
