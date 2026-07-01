@@ -114,6 +114,31 @@ if "%MONITOR_PATH%"=="" (
 echo  Launching agent: %MONITOR_PATH%
 echo.
 
+:: ── Auto-create .env beside monitor.py (so agent gets API keys) ─────────────
+:: Get the folder that contains monitor.py
+for %%F in ("%MONITOR_PATH%") do set AGENT_DIR=%%~dpF
+
+if not exist "%AGENT_DIR%.env" (
+    echo  ┌──────────────────────────────────────────────────────────┐
+    echo  │           First-time Setup — API Key Required           │
+    echo  └──────────────────────────────────────────────────────────┘
+    echo.
+    echo  Your parent will give you a setup key.
+    echo  Paste it below and press Enter:
+    echo.
+    set /p GEMINI_KEY=  API Key: 
+    echo.
+    (
+        echo GEMINI_API_KEY=%GEMINI_KEY%
+        echo SAFENET_API=https://safenetkidsproject-production.up.railway.app
+    ) > "%AGENT_DIR%.env"
+    echo  Setup complete! Key saved. You won't be asked again.
+    echo.
+) else (
+    echo  Config already set up.
+    echo.
+)
+
 :: ── Launch ─────────────────────────────────────────────────────────────────
 %PYTHON_CMD% "%MONITOR_PATH%"
 
