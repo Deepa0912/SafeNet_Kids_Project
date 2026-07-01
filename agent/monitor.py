@@ -84,14 +84,30 @@ UNSAFE_KEYWORDS: dict[str, list[str]] = {
         "buy mdma", "buy lsd", "dark web drugs", "drug dealer", "how to get high",
         "how to make drugs", "drug overdose how", "buy ketamine", "buy fentanyl",
         "silk road", "drug market", "weed shop", "cannabis delivery",
-        "psychedelics buy", "shrooms buy",
+        "psychedelics buy", "shrooms buy", "buy pills online",
+        "get high at home", "snort drugs", "inject drugs",
+        "drug effects", "recreational drugs", "get drugs delivered",
     ],
 
     "Self Harm": [
+        # Direct phrases
+        "i will die", "i want to die", "i wanna die", "kill myself",
+        "want to kill myself", "i want to kill myself", "end my life",
+        "end it all", "no reason to live", "don't want to live",
+        "not worth living", "life is not worth", "tired of living",
+        "can't go on", "can't take it anymore", "better off dead",
+        "wish i was dead", "wish i were dead", "ready to die",
+        "planning to die", "going to kill myself", "will kill myself",
+        # Methods
         "how to self harm", "how to cut yourself", "how to kill yourself",
         "suicide methods", "painless suicide", "ways to die", "suicide tutorial",
-        "how to commit suicide", "self harm tips", "cutting tips", "suicide forum",
-        "pro suicide", "encourage suicide", "suicide note",
+        "how to commit suicide", "self harm tips", "cutting tips",
+        "how to overdose", "lethal dose", "hanging yourself",
+        "how to hang yourself", "wrist cutting",
+        # Communities / forums
+        "suicide forum", "pro suicide", "pro ana", "pro mia",
+        "encourage suicide", "suicide note", "suicide pact",
+        "r/suicide", "suicide watch", "teen suicide",
     ],
 
     "Gambling": [
@@ -99,7 +115,11 @@ UNSAFE_KEYWORDS: dict[str, list[str]] = {
         "roulette online", "blackjack online", "slot machine online",
         "gambling site", "bet365", "draftkings", "fanduel casino",
         "online gambling", "real money casino", "win money gambling",
-        "crash gambling", "stake casino", "rollbit",
+        "crash gambling", "stake casino", "rollbit", "betway",
+        "1xbet", "888casino", "spin casino", "jackpot city",
+        "bet for money", "free slots real money", "casino bonus",
+        "poker real money", "teen patti cash", "rummy cash",
+        "ludo earn money", "fantasy cricket money", "dream11",
     ],
 
     "Weapons": [
@@ -119,6 +139,10 @@ UNSAFE_KEYWORDS: dict[str, list[str]] = {
         "omegle", "chatroulette", "tinychat", "random video chat",
         "meet strangers online", "anonymous chat kids", "kik strangers",
         "snapchat strangers", "discord 18+", "teen dating", "meet teens online",
+        "you should die", "kill yourself", "kys", "nobody likes you",
+        "go kill yourself", "you are worthless", "nobody cares about you",
+        "you should end it", "commit suicide", "rope yourself",
+        "bully tips", "how to bully", "cyberbully",
     ],
 
     "Dark Web": [
@@ -136,16 +160,45 @@ _KW_CATEGORY: dict[str, str] = {
 
 
 def close_active_tab():
-    """Close only the current browser TAB using Ctrl+W (keeps browser open)."""
-    if PYAUTOGUI:
+    """
+    Close the current browser TAB using Ctrl+W.
+    Tries 3 methods in order so it always works regardless of what's installed.
+    Method 1: focus window → pyautogui Ctrl+W
+    Method 2: pynput keyboard Ctrl+W
+    Method 3: close entire browser window (last resort)
+    """
+    import time as _time
+
+    # ── Method 1: pyautogui (most reliable when window is focused) ────────────
+    if PYAUTOGUI and PYGETWINDOW:
         try:
+            win = gw.getActiveWindow()
+            if win:
+                win.activate()          # bring window to front
+                _time.sleep(0.15)       # wait for focus
             import pyautogui
             pyautogui.hotkey('ctrl', 'w')
-            print("[SafeNet Agent] 🛡️ Closed browser tab (Ctrl+W)")
+            print("[SafeNet Agent] 🛡️ Tab closed via pyautogui Ctrl+W")
             return
         except Exception as e:
-            print(f"[SafeNet Agent] Ctrl+W failed: {e}")
-    # Fallback: close entire window if pyautogui not available
+            print(f"[SafeNet Agent] pyautogui Ctrl+W failed: {e}")
+
+    # ── Method 2: pynput keyboard (works even if pyautogui unavailable) ───────
+    if PYNPUT:
+        try:
+            from pynput.keyboard import Key, Controller
+            _kb = Controller()
+            _time.sleep(0.1)
+            with _kb.pressed(Key.ctrl):
+                _kb.press('w')
+                _kb.release('w')
+            print("[SafeNet Agent] 🛡️ Tab closed via pynput Ctrl+W")
+            return
+        except Exception as e:
+            print(f"[SafeNet Agent] pynput Ctrl+W failed: {e}")
+
+    # ── Method 3: close entire browser window (last resort) ───────────────────
+    print("[SafeNet Agent] ⚠️  Falling back to window close")
     close_active_window()
 
 
