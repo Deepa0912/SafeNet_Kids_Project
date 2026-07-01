@@ -58,13 +58,81 @@ SCREEN_INTERVAL   = 300  # seconds between periodic screenshots (5 min)
 _device_locked    = False
 _internet_paused  = False
 
-# ── Adult / harmful keywords to detect in browser title/URL ───────────────────
-ADULT_KEYWORDS = [
-    "xxx", "porn", "xvideos", "xhamster", "pornhub", "xnxx", "redtube",
-    "youporn", "livejasmin", "onlyfans", "sex", "nude", "naked", "hentai",
-    "adult content", "18+", "erotic", "camgirl", "strip", "fetish",
-    "sexvid", "brazzers", "bangbros", "chaturbate", "bongacams",
-]
+# ── Unsafe keyword categories to detect in browser title/URL ─────────────────
+# Each category maps to a list of trigger words.
+# All checks are case-insensitive substring matches against the window title.
+UNSAFE_KEYWORDS: dict[str, list[str]] = {
+
+    "Adult Content": [
+        "xxx", "porn", "pornhub", "xvideos", "xhamster", "xnxx", "redtube",
+        "youporn", "tube8", "spankbang", "eporner", "tnaflix", "4tube",
+        "livejasmin", "chaturbate", "bongacams", "myfreecams", "stripchat",
+        "onlyfans", "fansly", "manyvids", "brazzers", "bangbros", "naughtyamerica",
+        "sex", "nude", "naked", "hentai", "erotic", "camgirl", "fetish",
+        "sexvid", "adult content", "18+", "nsfw", "hot girls", "free porn",
+    ],
+
+    "Violence / Gore": [
+        "gore", "bestgore", "liveleak", "graphic violence", "death video",
+        "murder video", "beheading", "execution video", "torture video",
+        "shock site", "cartel video", "brutal fight", "mass shooting video",
+        "war crimes video", "live murder", "dead body",
+    ],
+
+    "Drug Related": [
+        "buy drugs", "buy weed", "buy cocaine", "buy heroin", "buy meth",
+        "buy mdma", "buy lsd", "dark web drugs", "drug dealer", "how to get high",
+        "how to make drugs", "drug overdose how", "buy ketamine", "buy fentanyl",
+        "silk road", "drug market", "weed shop", "cannabis delivery",
+        "psychedelics buy", "shrooms buy",
+    ],
+
+    "Self Harm": [
+        "how to self harm", "how to cut yourself", "how to kill yourself",
+        "suicide methods", "painless suicide", "ways to die", "suicide tutorial",
+        "how to commit suicide", "self harm tips", "cutting tips", "suicide forum",
+        "pro suicide", "encourage suicide", "suicide note",
+    ],
+
+    "Gambling": [
+        "online casino", "bet online", "sports betting", "poker online",
+        "roulette online", "blackjack online", "slot machine online",
+        "gambling site", "bet365", "draftkings", "fanduel casino",
+        "online gambling", "real money casino", "win money gambling",
+        "crash gambling", "stake casino", "rollbit",
+    ],
+
+    "Weapons": [
+        "buy gun online", "illegal weapons", "buy knife online", "ghost gun",
+        "convert gun automatic", "buy silencer", "how to make bomb",
+        "pipe bomb instructions", "how to make explosives", "buy explosive",
+        "illegal firearms", "untraceable gun",
+    ],
+
+    "Hate Speech": [
+        "white supremacy", "neo nazi", "racial slur", "kill all ", "hate jews",
+        "white power", "kkk site", "ethnic cleansing", "islamic terrorism",
+        "terrorism recruitment", "join isis", "jihadist",
+    ],
+
+    "Cyberbullying / Predators": [
+        "omegle", "chatroulette", "tinychat", "random video chat",
+        "meet strangers online", "anonymous chat kids", "kik strangers",
+        "snapchat strangers", "discord 18+", "teen dating", "meet teens online",
+    ],
+
+    "Dark Web": [
+        ".onion", "tor browser", "dark web", "darknet", "hidden wiki",
+        "how to access dark web", "buy on darknet", "illegal dark web",
+    ],
+}
+
+# Flat lookup: keyword -> category (built at startup for fast O(n) scan)
+_KW_CATEGORY: dict[str, str] = {
+    kw: cat
+    for cat, keywords in UNSAFE_KEYWORDS.items()
+    for kw in keywords
+}
 
 
 def close_active_tab():
@@ -205,7 +273,7 @@ def enforce_blocked_urls(blocked_urls: list):
 async def url_search_monitor_loop():
     """
     Continuously reads the active browser window title every 2 seconds.
-    Detects adult keywords in the title (which includes search terms and URLs)
+    Detects unsafe keywords in the title (which includes search terms and URLs)
     and closes the tab immediately, logs the threat, and alerts the parent.
     """
     _alerted_titles: set = set()   # avoid spamming the same page repeatedly
@@ -222,23 +290,26 @@ async def url_search_monitor_loop():
                     is_browser = any(b in title_lower for b in BROWSER_NAMES)
 
                     if is_browser:
-                        # Check adult keywords
-                        for kw in ADULT_KEYWORDS:
+                        # Scan all unsafe keyword categories
+                        for kw, category in _KW_CATEGORY.items():
                             if kw in title_lower and title not in _alerted_titles:
                                 _alerted_titles.add(title)
-                                print(f"[SafeNet Agent] 🚨 Adult keyword '{kw}' in browser title: {title}")
+                                print(f"[SafeNet Agent] 🚨 [{category}] keyword '{kw}' in: {title}")
 
                                 # 1. Close the tab immediately
                                 close_active_tab()
 
                                 # 2. Show warning popup to child
-                                show_warning_popup("Adult Content")
+                                show_warning_popup(category)
 
                                 # 3. Take screenshot as evidence
-                                await send_screenshot(f"Adult Content: {kw}")
+                                await send_screenshot(f"{category}: {kw}")
 
                                 # 4. Log threat to backend
-                                await send_activity("url_blocked", f"Adult keyword detected: '{kw}' in '{title}'")
+                                await send_activity(
+                                    "url_blocked",
+                                    f"[{category}] keyword '{kw}' detected in: '{title}'"
+                                )
 
                                 break  # one action per cycle
 
