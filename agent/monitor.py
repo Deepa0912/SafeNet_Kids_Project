@@ -414,6 +414,30 @@ if _GEMINI_KEY:
     except Exception as e:
         print(f"[SafeNet Agent] Gemini Vision unavailable: {e}")
 
+# ── Shared Gemini safety prompt (used by screenshot analyser + browser AI monitor)
+_GEMINI_SAFETY_PROMPT = """You are SafeNet Kids, a child safety AI monitoring a child's screen.
+Analyze this screenshot and determine if it contains ANY content harmful or inappropriate for a child under 18.
+
+Check ALL of these categories:
+- Adult Content: nudity, pornography, sexual content, explicit images or text
+- Violence / Gore: graphic violence, blood, death, torture, brutal fights
+- Self Harm: suicide content, self-injury tutorials, eating disorder forums
+- Drug Related: drug purchases, how-to drug use, drug promotion
+- Gambling: casino sites, sports betting, real-money games
+- Cyberbullying: hate messages, threats, harassment, humiliation
+- Predators: stranger chat sites, adult dating, suspicious messaging
+- Weapons: bomb-making, illegal weapon purchase, explosives
+- Hate Speech: racism, extremism, terrorist recruitment
+- Dark Web: darknet markets, Tor usage, illegal content
+
+If content is SAFE (education, entertainment, news, normal social media) respond with Safe.
+
+Respond ONLY in this exact format:
+CATEGORY: <category or Safe>
+CONFIDENCE: <0.0 to 1.0>
+IS_THREAT: <true or false>
+REASON: <one short sentence of what you saw>"""
+
 
 # ── Send Screenshot ───────────────────────────────────────────────────────────
 async def send_screenshot(reason: str = "monitoring"):
@@ -431,31 +455,31 @@ async def send_screenshot(reason: str = "monitoring"):
                 from google.genai import types as genai_types
                 buf2 = io.BytesIO()
                 img.save(buf2, format="PNG")
-                prompt = (
-                    "You are SafeNet Kids, a child safety AI. Look at this screenshot and "
-                    "determine if it contains harmful content for a child.\n"
-                    "Categories: Adult Content, Gambling, Drug Related, Cyberbullying, Self Harm, Violence, Safe\n"
-                    "Respond ONLY in this format:\n"
-                    "CATEGORY: <category>\nCONFIDENCE: <0.0-1.0>\nIS_THREAT: <true|false>"
-                )
                 response = _gemini_agent_client.models.generate_content(
                     model="gemini-2.0-flash",
                     contents=[
-                        prompt,
+                        _GEMINI_SAFETY_PROMPT,
                         genai_types.Part.from_bytes(data=buf2.getvalue(), mime_type="image/png"),
                     ],
                 )
-                raw = response.text.strip()
-                cat_m  = re.search(r"CATEGORY:\s*(.+)", raw)
+                raw    = response.text.strip()
+                cat_m  = re.search(r"CATEGORY:\s*(.+)",         raw)
+                conf_m = re.search(r"CONFIDENCE:\s*([\d.]+)",   raw)
                 thr_m  = re.search(r"IS_THREAT:\s*(true|false)", raw, re.IGNORECASE)
+                rsn_m  = re.search(r"REASON:\s*(.+)",            raw)
                 if cat_m and thr_m:
-                    category  = cat_m.group(1).strip()
-                    is_threat = thr_m.group(1).lower() == "true"
-                    if is_threat and category != "Safe":
-                        reason = f"Gemini Detected: {category}"
-                        await send_activity("screenshot_vision", f"[Gemini Vision] {category}")
-                        close_active_tab()   # 🛡️ Close tab only
-                        show_warning_popup(category)
+                    category   = cat_m.group(1).strip()
+                    confidence = float(conf_m.group(1)) if conf_m else 0.0
+                    is_threat  = thr_m.group(1).lower() == "true"
+                    detail     = rsn_m.group(1).strip() if rsn_m else category
+                    if is_threat and category != "Safe" and confidence >= 0.65:
+                        reason = f"Gemini: {category}"
+                        await send_activity(
+                            "screenshot_vision",
+                            f"[Gemini Vision] {category} ({round(confidence*100)}%) — {detail}"
+                        )
+                        close_active_tab()
+                        show_warning_popup(f"{category}\n\n{detail}")
             except Exception as ve:
                 print(f"[Agent] Gemini Vision error: {ve}")
 
@@ -622,11 +646,124 @@ async def app_monitor_loop():
         await asyncio.sleep(10)  # Check every 10 s
 
 
-# ── Screen Monitor ────────────────────────────────────────────────────────────
+# ── Screen Monitor (periodic background screenshots) ─────────────────────────
 async def screen_monitor_loop():
     while True:
         await send_screenshot("periodic")
         await asyncio.sleep(SCREEN_INTERVAL)
+
+
+# ── AI Browser Monitor (Gemini Vision on every active browser tab) ────────────
+async def browser_ai_monitor_loop():
+    """
+    Every 10 s: if a browser is active, capture a screenshot and send it to
+    Gemini Vision with the full child-safety prompt.
+    Catches visual content, images, and videos that keyword lists miss entirely.
+    Requires GEMINI_API_KEY to be configured.
+    """
+    if not _gemini_agent_client:
+        print("[SafeNet AI] GEMINI_API_KEY not set — AI browser monitor disabled.")
+        return
+    if not PILLOW:
+        print("[SafeNet AI] Pillow not installed — AI browser monitor disabled.")
+        return
+
+    print("[SafeNet AI] 🧠 AI Browser Monitor active (Gemini Vision, every 10 s)")
+
+    BROWSER_NAMES = ["chrome", "edge", "firefox", "opera", "brave", "safari", "msedge"]
+    _analyzed: set = set()   # page titles already acted on (prevent duplicate alerts)
+    _cooldown  = 0           # skip N cycles after a block to avoid rapid-fire
+
+    while True:
+        try:
+            if _cooldown > 0:
+                _cooldown -= 1
+                await asyncio.sleep(10)
+                continue
+
+            if not PYGETWINDOW:
+                await asyncio.sleep(10)
+                continue
+
+            win = gw.getActiveWindow()
+            if not win:
+                await asyncio.sleep(10)
+                continue
+
+            title     = win.title
+            title_low = title.lower()
+            if not any(b in title_low for b in BROWSER_NAMES):
+                await asyncio.sleep(10)
+                continue
+
+            # ── Capture screenshot ──────────────────────────────────────────
+            import io, re
+            from PIL import ImageGrab
+            from google.genai import types as genai_types
+
+            img = ImageGrab.grab()
+            img.thumbnail((1280, 720))
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            img_bytes = buf.getvalue()
+
+            # ── Ask Gemini ──────────────────────────────────────────────────
+            response = _gemini_agent_client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=[
+                    _GEMINI_SAFETY_PROMPT,
+                    genai_types.Part.from_bytes(data=img_bytes, mime_type="image/png"),
+                ],
+            )
+            raw    = response.text.strip()
+            cat_m  = re.search(r"CATEGORY:\s*(.+)",         raw)
+            conf_m = re.search(r"CONFIDENCE:\s*([\d.]+)",   raw)
+            thr_m  = re.search(r"IS_THREAT:\s*(true|false)", raw, re.IGNORECASE)
+            rsn_m  = re.search(r"REASON:\s*(.+)",            raw)
+
+            if not (cat_m and thr_m):
+                await asyncio.sleep(10)
+                continue
+
+            category   = cat_m.group(1).strip()
+            confidence = float(conf_m.group(1)) if conf_m else 0.0
+            is_threat  = thr_m.group(1).lower() == "true"
+            reason     = rsn_m.group(1).strip() if rsn_m else ""
+
+            print(f"[SafeNet AI] 🧠 {category} | {round(confidence*100)}% | threat={is_threat} | {reason}")
+
+            if is_threat and category != "Safe" and confidence >= 0.65 and title not in _analyzed:
+                _analyzed.add(title)
+                print(f"[SafeNet AI] 🚨 BLOCKING [{category}] {round(confidence*100)}% — {reason}")
+
+                # 1. Close the browser tab immediately
+                close_active_tab()
+
+                # 2. Warn the child with category + AI reason
+                show_warning_popup(f"{category}\n\n{reason}")
+
+                # 3. Upload screenshot as evidence to parent dashboard
+                img_b64 = base64.b64encode(img_bytes).decode()
+                async with httpx.AsyncClient(timeout=30) as hc:
+                    await hc.post(
+                        f"{API_BASE}/api/child/screenshot",
+                        json={"child_id": CHILD_ID,
+                              "image_b64": img_b64,
+                              "reason": f"AI Detected: {category}"}
+                    )
+
+                # 4. Log threat to parent dashboard
+                await send_activity(
+                    "ai_browser_threat",
+                    f"[{category}] {round(confidence*100)}% confidence — {reason} — Page: {title}"
+                )
+
+                _cooldown = 3   # wait 30 s before re-analyzing (3 × 10 s cycles)
+
+        except Exception as e:
+            print(f"[SafeNet AI] Browser AI monitor error: {e}")
+
+        await asyncio.sleep(10)   # check every 10 seconds
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -644,7 +781,8 @@ async def main():
         heartbeat_loop(),
         app_monitor_loop(),
         screen_monitor_loop(),
-        url_search_monitor_loop(),   # 🔍 Real-time URL/search keyword detection
+        url_search_monitor_loop(),    # 🔍 Keyword detection (title/URL, every 2 s)
+        browser_ai_monitor_loop(),    # 🧠 Gemini Vision AI  (every 10 s, browser only)
     )
 
 
