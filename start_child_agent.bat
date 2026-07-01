@@ -114,16 +114,28 @@ if "%MONITOR_PATH%"=="" (
 echo  Launching agent: %MONITOR_PATH%
 echo.
 
-:: ── Auto-create .env beside monitor.py (so agent gets API keys) ─────────────
+:: ── Auto-create / fix .env beside monitor.py ────────────────────────────────
 :: Get the folder that contains monitor.py
 for %%F in ("%MONITOR_PATH%") do set AGENT_DIR=%%~dpF
 
-if not exist "%AGENT_DIR%.env" (
+:: Check if .env exists AND has a real GEMINI_API_KEY value (not blank)
+set NEED_KEY=1
+if exist "%AGENT_DIR%.env" (
+    findstr /i /c:"GEMINI_API_KEY=" "%AGENT_DIR%.env" | findstr /v /c:"GEMINI_API_KEY= " | findstr /v /c:"GEMINI_API_KEY=$" >nul 2>&1
+    :: Use a different approach - check if key line has content after the =
+    for /f "tokens=2 delims==" %%K in ('findstr /i "GEMINI_API_KEY" "%AGENT_DIR%.env" 2^>nul') do (
+        if not "%%K"=="" set NEED_KEY=0
+    )
+)
+
+if "%NEED_KEY%"=="1" (
+    color 0E
+    echo.
     echo  ┌──────────────────────────────────────────────────────────┐
-    echo  │           First-time Setup — API Key Required           │
+    echo  │          Setup Required — AI Key Needed                 │
     echo  └──────────────────────────────────────────────────────────┘
     echo.
-    echo  Your parent will give you a setup key.
+    echo  Ask your parent for the GEMINI API key.
     echo  Paste it below and press Enter:
     echo.
     set /p GEMINI_KEY=  API Key: 
@@ -132,10 +144,11 @@ if not exist "%AGENT_DIR%.env" (
         echo GEMINI_API_KEY=%GEMINI_KEY%
         echo SAFENET_API=https://safenetkidsproject-production.up.railway.app
     ) > "%AGENT_DIR%.env"
-    echo  Setup complete! Key saved. You won't be asked again.
+    color 0A
+    echo  AI key saved! Gemini Vision monitoring is now active.
     echo.
 ) else (
-    echo  Config already set up.
+    echo  Config OK — AI monitoring enabled.
     echo.
 )
 
