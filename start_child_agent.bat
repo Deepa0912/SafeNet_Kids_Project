@@ -72,7 +72,7 @@ echo.
 echo  Installing / checking required packages...
 echo  (This only happens once — please wait)
 echo.
-%PYTHON_CMD% -m pip install httpx psutil python-dotenv pynput pygetwindow pillow --upgrade
+%PYTHON_CMD% -m pip install httpx psutil python-dotenv pynput pygetwindow pillow pyautogui --upgrade
 
 if %errorlevel% neq 0 (
     color 0C

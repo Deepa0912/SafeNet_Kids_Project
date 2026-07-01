@@ -8,6 +8,12 @@ import psutil
 from datetime import datetime
 from dotenv import load_dotenv
 
+try:
+    import pyautogui
+    PYAUTOGUI = True
+except Exception:
+    PYAUTOGUI = False
+
 # Load settings from .env file
 load_dotenv()
 
@@ -52,9 +58,31 @@ SCREEN_INTERVAL   = 300  # seconds between periodic screenshots (5 min)
 _device_locked    = False
 _internet_paused  = False
 
+# ── Adult / harmful keywords to detect in browser title/URL ───────────────────
+ADULT_KEYWORDS = [
+    "xxx", "porn", "xvideos", "xhamster", "pornhub", "xnxx", "redtube",
+    "youporn", "livejasmin", "onlyfans", "sex", "nude", "naked", "hentai",
+    "adult content", "18+", "erotic", "camgirl", "strip", "fetish",
+    "sexvid", "brazzers", "bangbros", "chaturbate", "bongacams",
+]
+
+
+def close_active_tab():
+    """Close only the current browser TAB using Ctrl+W (keeps browser open)."""
+    if PYAUTOGUI:
+        try:
+            import pyautogui
+            pyautogui.hotkey('ctrl', 'w')
+            print("[SafeNet Agent] 🛡️ Closed browser tab (Ctrl+W)")
+            return
+        except Exception as e:
+            print(f"[SafeNet Agent] Ctrl+W failed: {e}")
+    # Fallback: close entire window if pyautogui not available
+    close_active_window()
+
 
 def close_active_window():
-    """Identifies the active browser window and closes it."""
+    """Identifies the active browser window and closes it (last resort)."""
     if not PYGETWINDOW:
         return
     try:
@@ -155,7 +183,7 @@ def resume_internet():
 
 
 def enforce_blocked_urls(blocked_urls: list):
-    """Close browser if its title/URL contains a blocked domain."""
+    """Close TAB if its title contains a blocked domain."""
     if not PYGETWINDOW or not blocked_urls:
         return
     try:
@@ -167,11 +195,57 @@ def enforce_blocked_urls(blocked_urls: list):
             domain = url.lower().replace("https://", "").replace("http://", "").split("/")[0]
             if domain and domain in title:
                 print(f"[SafeNet Agent] 🚫 Blocked URL detected in title: {domain}")
-                active_window.close()
+                close_active_tab()
                 show_warning_popup(f"Blocked Website: {domain}")
                 break
     except Exception as e:
         print(f"[SafeNet Agent] URL enforce error: {e}")
+
+
+async def url_search_monitor_loop():
+    """
+    Continuously reads the active browser window title every 2 seconds.
+    Detects adult keywords in the title (which includes search terms and URLs)
+    and closes the tab immediately, logs the threat, and alerts the parent.
+    """
+    _alerted_titles: set = set()   # avoid spamming the same page repeatedly
+
+    BROWSER_NAMES = ["chrome", "edge", "firefox", "opera", "brave", "safari", "msedge"]
+
+    while True:
+        try:
+            if PYGETWINDOW:
+                win = gw.getActiveWindow()
+                if win:
+                    title = win.title
+                    title_lower = title.lower()
+                    is_browser = any(b in title_lower for b in BROWSER_NAMES)
+
+                    if is_browser:
+                        # Check adult keywords
+                        for kw in ADULT_KEYWORDS:
+                            if kw in title_lower and title not in _alerted_titles:
+                                _alerted_titles.add(title)
+                                print(f"[SafeNet Agent] 🚨 Adult keyword '{kw}' in browser title: {title}")
+
+                                # 1. Close the tab immediately
+                                close_active_tab()
+
+                                # 2. Show warning popup to child
+                                show_warning_popup("Adult Content")
+
+                                # 3. Take screenshot as evidence
+                                await send_screenshot(f"Adult Content: {kw}")
+
+                                # 4. Log threat to backend
+                                await send_activity("url_blocked", f"Adult keyword detected: '{kw}' in '{title}'")
+
+                                break  # one action per cycle
+
+        except Exception as e:
+            print(f"[SafeNet Agent] URL/search monitor error: {e}")
+
+        await asyncio.sleep(2)   # check every 2 seconds
 
 
 
@@ -256,7 +330,7 @@ async def send_screenshot(reason: str = "monitoring"):
                     if is_threat and category != "Safe":
                         reason = f"Gemini Detected: {category}"
                         await send_activity("screenshot_vision", f"[Gemini Vision] {category}")
-                        close_active_window() # 🛡️ INSTANT ACTION
+                        close_active_tab()   # 🛡️ Close tab only
                         show_warning_popup(category)
             except Exception as ve:
                 print(f"[Agent] Gemini Vision error: {ve}")
@@ -283,7 +357,7 @@ async def send_screenshot(reason: str = "monitoring"):
         if ocr_text.strip():
             result = await send_activity("screenshot_ocr", ocr_text[:1000])
             if result.get("is_threat") and not _gemini_agent_client:
-                close_active_window() # 🛡️ INSTANT ACTION
+                close_active_tab()   # 🛡️ Close tab only
                 show_warning_popup(result.get("threat_type", "Unsafe Content"))
 
     except Exception as e:
@@ -385,9 +459,9 @@ _loop = None
 async def _process_keyboard(text: str):
     result = await send_activity("keyboard", text)
     if result.get("is_threat"):
-        # Take immediate screenshot before closing window as evidence
+        # Take immediate screenshot before closing tab as evidence
         await send_screenshot(f"Keylog Threat: {result.get('threat_type')}")
-        close_active_window() # 🛡️ INSTANT ACTION
+        close_active_tab()   # 🛡️ Close tab only, not whole browser
         show_warning_popup(result.get("threat_type", "Unsafe Content"))
 
 
@@ -446,6 +520,7 @@ async def main():
         heartbeat_loop(),
         app_monitor_loop(),
         screen_monitor_loop(),
+        url_search_monitor_loop(),   # 🔍 Real-time URL/search keyword detection
     )
 
 
